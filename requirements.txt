@@ -1,0 +1,7 @@
+faker
+sse_starlette
+fastapi
+uvicorn
+asyncio
+requests
+httpx
