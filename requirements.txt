@@ -6,3 +6,4 @@ asyncio
 requests
 httpx
 tabulate
+mysql-connector-python

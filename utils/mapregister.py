@@ -6,12 +6,15 @@ from pickle import dumps, loads
 
 
 class MapRegister:
-    def __init__(self, table_name="root"):
+    def __init__(self, table_name="root", updateOrder=None, save_file_name='map_register.pkl'):
         self.table_name = table_name
         self.map = {"table_autogen_id": Metadata(type_="int", auto=True)}
         self.request_count = 0
         self._created_sql = False
         self._created_nosql = False
+        self.save_file_name = save_file_name
+        # Emit CREATE placeholders as soon as the register is initialized.
+        self._emit_create_placeholders(updateOrder)
 
     @staticmethod
     def _metadata_type_name(meta: Metadata):
@@ -139,6 +142,8 @@ class MapRegister:
         # Every 1000 requests, recalculate storage paths and emit migration placeholders.
         if self.request_count % 1000 == 0:
             self._recalc_all_storages(updateOrder=updateOrder)
+        if self.request_count %100 == 0:
+            self.Save(self.save_file_name)
         
         # Emit INSERT placeholders in the existing order after ALTER/CREATE.
         if updateOrder is not None:

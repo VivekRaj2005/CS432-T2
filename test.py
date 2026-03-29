@@ -90,8 +90,6 @@ def test_mapregister_queue(command_queue: deque, update_log_path: Path = Path("u
 
 			processed += 1
 			entry = {
-				"request_index": processed,
-				"request": payload,
 				"updateOrder": list(update_order)
 			}
 			log_file.write(json.dumps(entry, default=str) + "\n")
@@ -99,10 +97,6 @@ def test_mapregister_queue(command_queue: deque, update_log_path: Path = Path("u
 			if processed % save_every == 0:
 				state_file = Path("map_register.pkl")
 				mr.Save(str(state_file))
-				log_file.write(json.dumps({
-					"checkpoint": str(state_file),
-					"processed": processed
-				}) + "\n")
 
 	print(f"Processed {processed} commands. Update order written to {update_log_path}")
 	return mr
