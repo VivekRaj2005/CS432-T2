@@ -61,6 +61,8 @@ class SQLUpdateOrderExecutor:
 					self._execute_alter(cursor, command)
 				elif command_type == "INSERT":
 					self._execute_insert(cursor, command)
+				elif command_type == "UPDATE":
+					self._execute_update(cursor, command)
 				elif command_type in {"DELETE", "REMOVE"}:
 					self._execute_delete(cursor, command)
 
@@ -179,5 +181,39 @@ class SQLUpdateOrderExecutor:
 
 		query = f"DELETE FROM {table_name} WHERE {' AND '.join(where_parts)}"
 		logger.info(f"Executing DELETE: {query} with values {values}")
+		cursor.execute(query, values)
+
+	def _execute_update(self, cursor, command: Dict[str, Any]) -> None:
+		criteria: Dict[str, Any] = command.get("criteria") or {}
+		set_fields: Dict[str, Any] = command.get("set_fields") or {}
+
+		if not criteria:
+			logger.warning(f"Skipping UPDATE with no criteria: {command}")
+			return
+		if not set_fields:
+			logger.warning(f"Skipping UPDATE with no set_fields: {command}")
+			return
+
+		table_name = _quote_identifier(command["table_name"])
+		set_parts = []
+		where_parts = []
+		values: List[Any] = []
+
+		for column, value in set_fields.items():
+			set_parts.append(f"{_quote_identifier(column)} = %s")
+			if isinstance(value, (dict, list)):
+				values.append(json.dumps(value))
+			else:
+				values.append(value)
+
+		for column, value in criteria.items():
+			where_parts.append(f"{_quote_identifier(column)} = %s")
+			if isinstance(value, (dict, list)):
+				values.append(json.dumps(value))
+			else:
+				values.append(value)
+
+		query = f"UPDATE {table_name} SET {', '.join(set_parts)} WHERE {' AND '.join(where_parts)}"
+		logger.info(f"Executing UPDATE: {query} with values {values}")
 		cursor.execute(query, values)
 

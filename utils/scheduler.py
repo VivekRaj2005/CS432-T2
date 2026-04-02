@@ -18,6 +18,12 @@ async def process_records(q, map_register, update_order, stop_event):
         event = record["event"]
         if event == "add":
             map_register.ResolveRequest(record["data"], update_order)
+        elif event in {"update", "change"}:
+            update_handler = getattr(map_register, "UpdateRequest", None) or getattr(map_register, "ChangeRequest", None)
+            if callable(update_handler):
+                update_handler(record["data"], update_order)
+            else:
+                logger.warning(f"Update event received but no update handler is available: {record}")
         elif event in {"delete", "remove"}:
             delete_handler = getattr(map_register, "DeleteRequest", None) or getattr(map_register, "RemoveRequest", None)
             if callable(delete_handler):

@@ -39,6 +39,8 @@ class MongoUpdateOrderExecutor:
 				self._execute_alter(command)
 			elif command_type == "INSERT":
 				self._execute_insert(command)
+			elif command_type == "UPDATE":
+				self._execute_update(command)
 			elif command_type in {"DELETE", "REMOVE"}:
 				self._execute_delete(command)
 
@@ -93,3 +95,20 @@ class MongoUpdateOrderExecutor:
 		collection = self._collection(table_name)
 		result = collection.delete_many(criteria)
 		logger.info(f"Mongo delete for {table_name} matched={result.deleted_count} criteria={criteria}")
+
+	def _execute_update(self, command: Dict[str, Any]) -> None:
+		criteria: Dict[str, Any] = command.get("criteria") or {}
+		set_fields: Dict[str, Any] = command.get("set_fields") or {}
+		if not criteria:
+			logger.warning(f"Skipping NoSQL UPDATE with no criteria: {command}")
+			return
+		if not set_fields:
+			logger.warning(f"Skipping NoSQL UPDATE with no set_fields: {command}")
+			return
+
+		table_name = command["table_name"]
+		collection = self._collection(table_name)
+		result = collection.update_many(criteria, {"$set": set_fields})
+		logger.info(
+			f"Mongo update for {table_name} matched={result.matched_count} modified={result.modified_count} criteria={criteria}"
+		)

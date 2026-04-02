@@ -1,5 +1,6 @@
 import json
 import os
+from typing import Dict, Tuple
 from utils.log import logger
 from utils.resolve import Metadata
 from tabulate import tabulate
@@ -110,6 +111,35 @@ class MapRegister:
                 if isinstance(parsed, dict):
                     return parsed
         return value
+
+    @staticmethod
+    def _is_identifier_key(key):
+        return key in {"table_autogen_id", "record_id", "dept_name"} or key.endswith("_id")
+
+    def _split_update_payload(self, request: Dict) -> Tuple[Dict, Dict]:
+        criteria = {}
+        updates = {}
+
+        criteria_payload = request.get("criteria") or request.get("filter") or request.get("where")
+        updates_payload = request.get("set") or request.get("updates") or request.get("changes") or request.get("values")
+
+        if isinstance(criteria_payload, dict):
+            criteria = dict(criteria_payload)
+        if isinstance(updates_payload, dict):
+            updates = dict(updates_payload)
+
+        if criteria or updates:
+            if not updates:
+                reserved = {"criteria", "filter", "where", "set", "updates", "changes", "values"}
+                updates = {k: v for k, v in request.items() if k not in reserved}
+            return criteria, updates
+
+        id_keys = [k for k in request.keys() if self._is_identifier_key(k)]
+        if id_keys:
+            criteria = {k: request[k] for k in id_keys}
+            updates = {k: v for k, v in request.items() if k not in criteria}
+
+        return criteria, updates
 
     def __getitem__(self, key):
         return self.map[key]
@@ -229,7 +259,99 @@ class MapRegister:
 
         return criteria
 
+    def UpdateRequest(self, request, updateOrder=None):
+        request = self._normalize_request(request)
+        self._emit_create_placeholders(updateOrder)
+        self.request_count += 1
+
+        if not request:
+            logger.warning("UpdateRequest received an empty request payload; skipping")
+            return None
+
+        criteria, updates = self._split_update_payload(request)
+        if not criteria:
+            logger.warning("UpdateRequest could not infer criteria; expected identifier fields or explicit criteria")
+            return None
+        if not updates:
+            logger.warning("UpdateRequest has no fields to update; skipping")
+            return {"criteria": criteria, "updates": updates}
+
+        resolved_criteria = {}
+        for key, value in criteria.items():
+            resolved_criteria[key] = self._coerce_delete_value(key, value)
+
+        sql_updates = {}
+        nosql_updates = {}
+
+        for key, value in updates.items():
+            if key in self.map and isinstance(self.map[key], Metadata):
+                old_type = self._metadata_type_name(self.map[key])
+                old_storage = self.map[key].storage
+                resolved_val = self.map[key].resolveValue(value)
+                new_type = self._metadata_type_name(self.map[key])
+                new_storage = self.map[key].storage
+
+                if old_type != new_type and updateOrder is not None:
+                    updateOrder.append({
+                        "type": "ALTER",
+                        "table_name": self.table_name,
+                        "column_name": key,
+                        "old_type": old_type,
+                        "new_type": new_type,
+                        "Executer": new_storage
+                    })
+                if old_storage != new_storage:
+                    self._emit_storage_migration_placeholders(updateOrder, key, old_storage, new_storage)
+            else:
+                if key in self.map and not isinstance(self.map[key], Metadata):
+                    logger.warning(
+                        "Column '%s' had legacy nested MapRegister metadata. Replacing with Metadata(UNK).",
+                        key
+                    )
+                self.map[key] = Metadata(type_="UNK")
+                resolved_val = self.map[key].resolveValue(value)
+                if updateOrder is not None:
+                    updateOrder.append({
+                        "type": "ALTER",
+                        "table_name": self.table_name,
+                        "column_name": key,
+                        "old_type": None,
+                        "new_type": self._metadata_type_name(self.map[key]),
+                        "Executer": self.map[key].storage
+                    })
+
+            if self.map[key].storage == "NoSQL":
+                nosql_updates[key] = resolved_val
+            else:
+                sql_updates[key] = resolved_val
+
+        if self.request_count % 1000 == 0:
+            self._recalc_all_storages(updateOrder=updateOrder)
+        if self.request_count % 100 == 0:
+            self.Save(self.save_file_name)
+
+        if updateOrder is not None:
+            if sql_updates:
+                updateOrder.append({
+                    "type": "UPDATE",
+                    "table_name": self.table_name,
+                    "criteria": resolved_criteria,
+                    "set_fields": sql_updates,
+                    "Executer": "SQL"
+                })
+            if nosql_updates:
+                updateOrder.append({
+                    "type": "UPDATE",
+                    "table_name": self.table_name,
+                    "criteria": resolved_criteria,
+                    "set_fields": nosql_updates,
+                    "Executer": "NoSQL"
+                })
+
+        return {"criteria": resolved_criteria, "updates": {**sql_updates, **nosql_updates}}
+
     RemoveRequest = DeleteRequest
+    ChangeRequest = UpdateRequest
     
     def __repr__(self):
         # print("MapRegister __repr__ called; preparing tabulated output")
