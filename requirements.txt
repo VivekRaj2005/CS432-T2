@@ -7,3 +7,4 @@ requests
 httpx
 tabulate
 mysql-connector-python
+pymongo

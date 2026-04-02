@@ -1,3 +1,4 @@
+import json
 import os
 from utils.log import logger
 from utils.resolve import Metadata
@@ -73,6 +74,43 @@ class MapRegister:
             if old_storage != meta.storage:
                 self._emit_storage_migration_placeholders(updateOrder, key, old_storage, meta.storage)
 
+    def _normalize_request(self, request):
+        if isinstance(request, str):
+            try:
+                return json.loads(request)
+            except json.JSONDecodeError as exc:
+                raise ValueError(f"Unable to parse request payload: {request}") from exc
+        if isinstance(request, dict):
+            return request
+        raise TypeError(f"Unsupported request type: {type(request)}")
+
+    def _coerce_delete_value(self, key, value):
+        meta = self.map.get(key)
+        if not isinstance(meta, Metadata):
+            return value
+
+        if meta.type == "int":
+            return meta.convert_scalar("int", value)
+        if meta.type == "float":
+            return meta.convert_scalar("float", value)
+        if meta.type == "bool":
+            return meta.convert_scalar("bool", value)
+        if meta.type == "str":
+            return meta.convert_scalar("str", value)
+        if meta.type == "list":
+            subtype = meta.subtype.type if meta.subtype and meta.subtype.type != "UNK" else None
+            if subtype is None:
+                return meta.normalize_list(value) if isinstance(value, str) else value
+            return meta.convert_list(subtype, value)
+        if meta.type == "dict":
+            if isinstance(value, dict):
+                return value
+            if isinstance(value, str):
+                parsed = json.loads(value)
+                if isinstance(parsed, dict):
+                    return parsed
+        return value
+
     def __getitem__(self, key):
         return self.map[key]
     
@@ -83,6 +121,7 @@ class MapRegister:
         return iter(self.map)
 
     def ResolveRequest(self, request, updateOrder=None):
+        request = self._normalize_request(request)
         self._emit_create_placeholders(updateOrder)
         table_autogen_id = self.map['table_autogen_id'].resolveValue() # Increment the auto ID for each request
         self.request_count += 1
@@ -163,6 +202,34 @@ class MapRegister:
             })
         
         return table_autogen_id
+
+    def DeleteRequest(self, request, updateOrder=None):
+        request = self._normalize_request(request)
+        self._emit_create_placeholders(updateOrder)
+        self.request_count += 1
+
+        if not request:
+            logger.warning("DeleteRequest received an empty request payload; skipping")
+            return None
+
+        criteria = {}
+        for key, value in request.items():
+            criteria[key] = self._coerce_delete_value(key, value)
+
+        if updateOrder is not None:
+            for executer in ("SQL", "NoSQL"):
+                updateOrder.append({
+                    "type": "DELETE",
+                    "table_name": self.table_name,
+                    "criteria": criteria,
+                    "columns": list(criteria.keys()),
+                    "values": list(criteria.values()),
+                    "Executer": executer
+                })
+
+        return criteria
+
+    RemoveRequest = DeleteRequest
     
     def __repr__(self):
         # print("MapRegister __repr__ called; preparing tabulated output")

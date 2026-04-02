@@ -61,6 +61,8 @@ class SQLUpdateOrderExecutor:
 					self._execute_alter(cursor, command)
 				elif command_type == "INSERT":
 					self._execute_insert(cursor, command)
+				elif command_type in {"DELETE", "REMOVE"}:
+					self._execute_delete(cursor, command)
 
 			self._connection.commit()
 		except Exception as e:
@@ -91,7 +93,6 @@ class SQLUpdateOrderExecutor:
 	def _execute_alter(self, cursor, command: Dict[str, Any]) -> None:
 		table_name = _quote_identifier(command["table_name"])
 		table_name_raw = command["table_name"]
-		self._ensure_table_exists(cursor, table_name_raw)
 		column_name = command.get("column_name")
 		if not column_name:
 			return
@@ -124,54 +125,17 @@ class SQLUpdateOrderExecutor:
 		cursor.execute(query, (table_name, column_name))
 		return cursor.fetchone() is not None
 
-	def _table_exists(self, cursor, table_name: str) -> bool:
-		query = (
-			"SELECT 1 FROM INFORMATION_SCHEMA.TABLES "
-			"WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = %s LIMIT 1"
-		)
-		cursor.execute(query, (table_name,))
-		return cursor.fetchone() is not None
-
-	def _ensure_table_exists(self, cursor, table_name: str) -> None:
-		if self._table_exists(cursor, table_name):
-			return
-		query = (
-			f"CREATE TABLE IF NOT EXISTS {_quote_identifier(table_name)} "
-			"(`table_autogen_id` BIGINT PRIMARY KEY)"
-		)
-		logger.warning(f"Table '{table_name}' missing in SQL; recreating it")
-		cursor.execute(query)
-
-	def _ensure_columns_exist(self, cursor, table_name: str, columns: List[str]) -> None:
-		for column_name in columns:
-			if column_name == "table_autogen_id":
-				continue
-			if self._column_exists(cursor, table_name, column_name):
-				continue
-			query = (
-				f"ALTER TABLE {_quote_identifier(table_name)} "
-				f"ADD COLUMN {_quote_identifier(column_name)} TEXT"
-			)
-			logger.warning(
-				f"Column '{column_name}' missing in SQL table '{table_name}'; adding TEXT column"
-			)
-			cursor.execute(query)
-
 	def _execute_insert(self, cursor, command: Dict[str, Any]) -> None:
 		if command.get("migration"):
 			# Migration placeholders from MapRegister are markers, not executable SQL.
 			return
 
-		table_name_raw = command["table_name"]
-		self._ensure_table_exists(cursor, table_name_raw)
 		table_name = _quote_identifier(command["table_name"])
 		columns: List[str] = command.get("columns", [])
 		values: List[Any] = command.get("values", [])
 
 		if not columns:
 			return
-
-		self._ensure_columns_exist(cursor, table_name_raw, columns)
 
 		normalized_values: List[Any] = []
 		for value in values:
@@ -196,4 +160,24 @@ class SQLUpdateOrderExecutor:
 			query += " ON DUPLICATE KEY UPDATE table_autogen_id = VALUES(table_autogen_id)"
 		logger.info(f"Executing INSERT: {query} with values {normalized_values}")
 		cursor.execute(query, normalized_values)
+
+	def _execute_delete(self, cursor, command: Dict[str, Any]) -> None:
+		criteria: Dict[str, Any] = command.get("criteria") or {}
+		if not criteria:
+			logger.warning(f"Skipping DELETE with no criteria: {command}")
+			return
+
+		table_name = _quote_identifier(command["table_name"])
+		where_parts = []
+		values: List[Any] = []
+		for column, value in criteria.items():
+			where_parts.append(f"{_quote_identifier(column)} = %s")
+			if isinstance(value, (dict, list)):
+				values.append(json.dumps(value))
+			else:
+				values.append(value)
+
+		query = f"DELETE FROM {table_name} WHERE {' AND '.join(where_parts)}"
+		logger.info(f"Executing DELETE: {query} with values {values}")
+		cursor.execute(query, values)
 
