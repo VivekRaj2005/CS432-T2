@@ -144,7 +144,7 @@ class MongoUpdateOrderExecutor:
 
 	def _execute_insert(self, command: Dict[str, Any]) -> None:
 		if command.get("migration"):
-			# Migration placeholders are markers and are not executable writes.
+			self._execute_migration_insert(command)
 			return
 
 		table_name = command["table_name"]
@@ -203,3 +203,56 @@ class MongoUpdateOrderExecutor:
 		logger.info(
 			f"Mongo update for {table_name} matched={result.matched_count} modified={result.modified_count} criteria={criteria}"
 		)
+
+	def _execute_migration_insert(self, command: Dict[str, Any]) -> None:
+		table_name = command.get("table_name")
+		column_name = command.get("migration_column")
+		transfer_rows = command.get("transfer_rows") or []
+
+		if not table_name or not column_name:
+			logger.warning(f"Migration INSERT missing table_name or migration_column; skipping: {command}")
+			return
+
+		if not transfer_rows:
+			logger.info(
+				"No historical SQL rows found for migration of %s.%s",
+				table_name,
+				column_name,
+			)
+			return
+
+		collection = self._collection(table_name)
+		batch = []
+		for row in transfer_rows:
+			pk_value = row.get("table_autogen_id")
+			if pk_value is None:
+				continue
+
+			value = row.get(column_name)
+			if value is None:
+				continue
+
+			document = {"table_autogen_id": pk_value, column_name: value}
+			batch.append(document)
+
+		if not batch:
+			logger.info(
+				"Migration rows present but all values were NULL for %s.%s; skipping Mongo transfer",
+				table_name,
+				column_name,
+			)
+			return
+
+		collection.create_index("table_autogen_id", unique=True)
+		logger.info(
+			"Migrating %d historical rows from SQL to Mongo for %s.%s",
+			len(batch),
+			table_name,
+			column_name,
+		)
+		for document in batch:
+			collection.update_one(
+				{"table_autogen_id": document["table_autogen_id"]},
+				{"$set": document},
+				upsert=True,
+			)

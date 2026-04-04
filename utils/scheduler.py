@@ -238,7 +238,7 @@ async def process_sql_updates(sql_queue, sql_server, mongo_server, stop_event):
     
 
 
-async def process_nosql_updates(nosql_queue, mongo_server, stop_event):
+async def process_nosql_updates(nosql_queue, sql_server, mongo_server, stop_event):
     logger.info("Starting NoSQL update processor...")
     nosql_count = 0
     
@@ -248,6 +248,35 @@ async def process_nosql_updates(nosql_queue, mongo_server, stop_event):
             continue
 
         command = nosql_queue.popleft()
+        migrated_ids = []
+        migration_column = None
+        if command.get("migration") and command.get("type") == "INSERT":
+            values = command.get("values") or []
+            if len(values) > 1 and isinstance(values[1], str):
+                match = re.match(r"<COPY:(SQL|NoSQL)->(SQL|NoSQL):([^>]+)>", values[1])
+                if match and match.group(1) == "SQL" and match.group(2) == "NoSQL":
+                    migration_column = match.group(3)
+
+            if migration_column:
+                source_rows = await asyncio.to_thread(
+                    sql_server.fetch_column_snapshot,
+                    command.get("table_name"),
+                    migration_column,
+                )
+                filtered_rows = []
+                for row in source_rows:
+                    value = row.get(migration_column)
+                    if value is None:
+                        continue
+                    filtered_rows.append(row)
+
+                migrated_ids = [row.get("table_autogen_id") for row in filtered_rows if row.get("table_autogen_id") is not None]
+                command = {
+                    **command,
+                    "migration_column": migration_column,
+                    "transfer_rows": filtered_rows,
+                }
+
         nosql_count += 1
         cmd_type = command.get("type")
         table = command.get("table_name")

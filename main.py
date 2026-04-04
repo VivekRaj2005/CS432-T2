@@ -58,7 +58,7 @@ async def main():
         process_sql_updates(sql_queue, sqlServer, mongoServer, stop_event)
     )
     nosql_task = asyncio.create_task(
-        process_nosql_updates(nosql_queue, mongoServer, stop_event)
+        process_nosql_updates(nosql_queue, sqlServer, mongoServer, stop_event)
     )
 
     try:

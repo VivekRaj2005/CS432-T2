@@ -188,15 +188,20 @@ class MapRegister:
         return register
 
     @staticmethod
-    def _fk_storage_from_classifier(classified_storage: str) -> str:
-        return "SQL" if classified_storage == "sql" else "NoSQL"
+    def _fk_storage_from_classifier(classified_storage: str, fallback: str = "SQL") -> str:
+        if classified_storage == "sql":
+            return "SQL"
+        if classified_storage == "mongodb":
+            return "NoSQL"
+        return fallback
 
     def _ensure_fk_reference(self, field_name: str, parent_id, updateOrder=None):
         fk_field = self._foreign_key_field_name(field_name)
         child_table = self._child_table_name(field_name)
 
         classified = self.field_classifier.classify_record({fk_field: parent_id})
-        desired_storage = self._fk_storage_from_classifier(classified.get(fk_field, "mongodb"))
+        classified_storage = classified.get(fk_field) or self.field_classifier.get_classification(fk_field)
+        desired_storage = self._fk_storage_from_classifier(classified_storage, fallback="SQL")
 
         existing = self.foreign_key_refs.get(field_name)
         old_storage = existing.get("storage") if isinstance(existing, dict) else None

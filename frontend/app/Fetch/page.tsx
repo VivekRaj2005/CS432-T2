@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import Navbar from "../Components/Navbar";
 
 type ConditionType = "string" | "number" | "boolean" | "array" | "dict";
@@ -112,6 +112,100 @@ function parseConditionPayload(row: ConditionRow): { field: string; op: Conditio
 	};
 }
 
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isForeignKeyField(field: string): boolean {
+	return field === "table_autogen_id" || field.endsWith("_fk");
+}
+
+function sanitizeForDisplay(value: unknown): unknown {
+	if (Array.isArray(value)) {
+		return value.map((item) => sanitizeForDisplay(item));
+	}
+
+	if (isPlainObject(value)) {
+		const cleaned: Record<string, unknown> = {};
+		for (const [key, item] of Object.entries(value)) {
+			if (isForeignKeyField(key)) {
+				continue;
+			}
+			cleaned[key] = sanitizeForDisplay(item);
+		}
+		return cleaned;
+	}
+
+	return value;
+}
+
+function previewValue(value: unknown): string {
+	if (value === null || value === undefined) {
+		return "-";
+	}
+	if (Array.isArray(value)) {
+		const preview = value.slice(0, 3).map((item) => previewValue(item)).join(", ");
+		return value.length > 3 ? `[${preview}, …]` : `[${preview}]`;
+	}
+	if (isPlainObject(value)) {
+		const entries = Object.entries(value).slice(0, 3).map(([key, item]) => `${key}: ${previewValue(item)}`);
+		return Object.keys(value).length > 3 ? `{ ${entries.join(", ")}, … }` : `{ ${entries.join(", ")} }`;
+	}
+	if (typeof value === "boolean") {
+		return value ? "true" : "false";
+	}
+	return String(value);
+}
+
+function formatTableValue(value: unknown): ReactNode {
+	const displayValue = sanitizeForDisplay(value);
+	if (displayValue === null || displayValue === undefined) {
+		return <span className="text-slate-400">-</span>;
+	}
+
+	if (Array.isArray(displayValue)) {
+		return (
+			<div className="space-y-1">
+				<div className="text-xs font-medium text-slate-500">Array ({displayValue.length})</div>
+				<div className="flex flex-wrap gap-1">
+					{displayValue.slice(0, 5).map((item, index) => (
+						<span
+							key={`${index}-${previewValue(item)}`}
+							className="rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-xs text-slate-700"
+						>
+							{previewValue(item)}
+						</span>
+					))}
+					{displayValue.length > 5 ? (
+						<span className="rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-xs text-slate-700">
+							+{displayValue.length - 5} more
+						</span>
+					) : null}
+				</div>
+			</div>
+		);
+	}
+
+	if (isPlainObject(displayValue)) {
+		const entries = Object.entries(displayValue);
+		return (
+			<div className="space-y-1">
+				<div className="text-xs font-medium text-slate-500">Dict ({entries.length})</div>
+				<div className="space-y-1">
+					{entries.slice(0, 4).map(([key, item]) => (
+						<div key={key} className="rounded-md bg-slate-100 px-2 py-1 text-xs text-slate-700">
+							<span className="font-semibold text-slate-800">{key}:</span> {previewValue(item)}
+						</div>
+					))}
+					{entries.length > 4 ? <div className="text-xs text-slate-500">+{entries.length - 4} more keys</div> : null}
+				</div>
+			</div>
+		);
+	}
+
+	return <span className="font-mono text-xs text-slate-800">{previewValue(value)}</span>;
+}
+
 export default function FetchPage() {
 	const endpoint = useMemo(
 		() => {
@@ -129,7 +223,41 @@ export default function FetchPage() {
 	const [status, setStatus] = useState("Idle");
 	const [error, setError] = useState<string | null>(null);
 	const [result, setResult] = useState<string>("");
+	const [responseData, setResponseData] = useState<unknown>(null);
 	const [isLoading, setIsLoading] = useState(false);
+
+	const tableRows = useMemo(() => {
+		if (!responseData || typeof responseData !== "object" || Array.isArray(responseData)) {
+			return [] as Array<Record<string, unknown>>;
+		}
+
+		const data = (responseData as { data?: unknown }).data;
+		if (!Array.isArray(data)) {
+			return [];
+		}
+
+		return data.filter(isPlainObject).map((row) => {
+			const copy: Record<string, unknown> = { ...row };
+			for (const key of Object.keys(copy)) {
+				if (isForeignKeyField(key)) {
+					delete copy[key];
+				}
+			}
+			return copy;
+		});
+	}, [responseData]);
+
+	const tableColumns = useMemo(() => {
+		const keys = new Set<string>();
+		for (const row of tableRows) {
+			for (const key of Object.keys(row)) {
+				if (key !== "table_autogen_id") {
+					keys.add(key);
+				}
+			}
+		}
+		return Array.from(keys).sort((a, b) => a.localeCompare(b));
+	}, [tableRows]);
 
 	function updateCondition(id: string, updater: (prev: ConditionRow) => ConditionRow) {
 		setConditions((prev) => prev.map((row) => (row.id === id ? updater(row) : row)));
@@ -148,6 +276,7 @@ export default function FetchPage() {
 		setIsLoading(true);
 		setError(null);
 		setResult("");
+		setResponseData(null);
 		setStatus("Fetching...");
 
 		const filters: Array<{ field: string; op: ConditionOperator; value: unknown }> = [];
@@ -198,6 +327,7 @@ export default function FetchPage() {
 			}
 
 			setStatus("Fetched");
+				setResponseData(data);
 			setResult(JSON.stringify(data, null, 2));
 		} catch (err) {
 			setStatus("Failed");
@@ -398,7 +528,34 @@ export default function FetchPage() {
 				{result ? (
 					<div className="mt-6 rounded-lg border border-slate-200 bg-slate-50 p-4">
 						<p className="mb-2 text-sm font-semibold text-slate-700">Response</p>
-						<pre className="overflow-x-auto whitespace-pre-wrap break-words text-xs text-slate-700">{result}</pre>
+						{tableRows.length > 0 && tableColumns.length > 0 ? (
+							<div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+								<table className="min-w-full divide-y divide-slate-200 text-left text-sm">
+									<thead className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-600">
+										<tr>
+											{tableColumns.map((column) => (
+												<th key={column} className="px-4 py-3">
+													{column}
+												</th>
+											))}
+										</tr>
+									</thead>
+									<tbody className="divide-y divide-slate-100">
+										{tableRows.map((row, rowIndex) => (
+											<tr key={`${rowIndex}-${row.table_autogen_id ?? "row"}`} className="align-top hover:bg-slate-50/70">
+												{tableColumns.map((column) => (
+													<td key={`${rowIndex}-${column}`} className="px-4 py-3 text-slate-700">
+														{formatTableValue(row[column])}
+													</td>
+												))}
+											</tr>
+										))}
+									</tbody>
+								</table>
+							</div>
+						) : (
+							<pre className="overflow-x-auto whitespace-pre-wrap break-words text-xs text-slate-700">{result}</pre>
+						)}
 					</div>
 				) : null}
 			</section>
