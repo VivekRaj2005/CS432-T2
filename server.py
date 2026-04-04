@@ -51,6 +51,13 @@ def _serialize_map_register(register: Any) -> dict[str, Any]:
             # Legacy checkpoints may contain non-Metadata values.
             fields[key] = {"raw": repr(value)}
 
+    nested_registers = getattr(register, "nested_registers", {}) or {}
+    nested_schema: dict[str, Any] = {}
+    for nested_field, nested_register in nested_registers.items():
+        nested_schema[nested_field] = _serialize_map_register(nested_register)
+
+    foreign_key_references = getattr(register, "foreign_key_refs", {}) or {}
+
     return {
         "source": "main.py runtime",
         "table_name": register.table_name,
@@ -58,7 +65,76 @@ def _serialize_map_register(register: Any) -> dict[str, Any]:
         "field_count": len(register.map),
         "field_classifications": register.get_field_classifications(),
         "fields": fields,
+        "foreign_key_references": foreign_key_references,
+        "nested_schema": nested_schema,
     }
+
+
+def _fetch_single_row(
+    sql_server: Any,
+    mongo_server: Any,
+    table_name: str,
+    row_id: Any,
+    source: str,
+) -> dict[str, Any] | None:
+    criteria = {"table_autogen_id": row_id}
+    if source == "sql":
+        rows = sql_server.fetch_records(table_name=table_name, criteria=criteria, limit=1)
+        return rows[0] if rows else None
+    if source == "nosql":
+        rows = mongo_server.fetch_records(table_name=table_name, criteria=criteria, limit=1)
+        return rows[0] if rows else None
+
+    sql_rows = sql_server.fetch_records(table_name=table_name, criteria=criteria, limit=1)
+    nosql_rows = mongo_server.fetch_records(table_name=table_name, criteria=criteria, limit=1)
+    merged = _merge_by_id(sql_rows, nosql_rows)
+    return merged[0] if merged else None
+
+
+def _expand_foreign_key_links(
+    rows: list[dict[str, Any]],
+    register: Any,
+    sql_server: Any,
+    mongo_server: Any,
+    source: str,
+) -> list[dict[str, Any]]:
+    refs = getattr(register, "foreign_key_refs", {}) or {}
+    if not refs:
+        return rows
+
+    cache: dict[tuple[str, Any, str], dict[str, Any] | None] = {}
+    expanded: list[dict[str, Any]] = []
+    for row in rows:
+        row_copy = dict(row)
+        for nested_field, ref_meta in refs.items():
+            if not isinstance(ref_meta, dict):
+                continue
+            fk_field = ref_meta.get("fk_field")
+            child_table = ref_meta.get("child_table")
+            if not isinstance(fk_field, str) or not isinstance(child_table, str):
+                continue
+
+            fk_value = row_copy.get(fk_field)
+            if fk_value is None:
+                continue
+
+            cache_key = (child_table, fk_value, source)
+            if cache_key not in cache:
+                cache[cache_key] = _fetch_single_row(
+                    sql_server=sql_server,
+                    mongo_server=mongo_server,
+                    table_name=child_table,
+                    row_id=fk_value,
+                    source=source,
+                )
+
+            linked = cache[cache_key]
+            if linked is not None:
+                row_copy[nested_field] = linked
+
+        expanded.append(row_copy)
+
+    return expanded
 
 
 def _get_ingest_queue() -> Any:
@@ -378,6 +454,14 @@ def fetch_records(
         data = nosql_rows
     else:
         data = _merge_by_id(sql_rows, nosql_rows)
+
+    data = _expand_foreign_key_links(
+        rows=data,
+        register=register,
+        sql_server=sql_server,
+        mongo_server=mongo_server,
+        source=source,
+    )
 
     data = _apply_filters(data, filters)
     data = data[:limit]

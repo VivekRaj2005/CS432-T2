@@ -14,6 +14,8 @@ class MapRegister:
         self.map = {"table_autogen_id": Metadata(type_="int", auto=True)}
         # Child registers per nested field for depth-1 nested data persisted in SQL.
         self.nested_registers = {}
+        # Foreign-key reference metadata per nested field.
+        self.foreign_key_refs = {}
         self.request_count = 0
         self._created_sql = False
         self._created_nosql = False
@@ -157,6 +159,20 @@ class MapRegister:
     def _foreign_key_field_name(field_name: str) -> str:
         return f"{field_name}_fk"
 
+    def _prune_legacy_fk_fields(self):
+        known_fk_fields = {
+            ref.get("fk_field")
+            for ref in self.foreign_key_refs.values()
+            if isinstance(ref, dict) and isinstance(ref.get("fk_field"), str)
+        }
+        stale_keys = [
+            key for key in self.map.keys()
+            if key != "table_autogen_id" and key.endswith("_fk")
+        ]
+        for key in stale_keys:
+            if key in known_fk_fields or not known_fk_fields:
+                self.map.pop(key, None)
+
     def _get_or_create_nested_register(self, field_name: str, updateOrder=None):
         child_table = self._child_table_name(field_name)
         register = self.nested_registers.get(field_name)
@@ -170,6 +186,60 @@ class MapRegister:
             self.nested_registers[field_name] = register
         register._emit_create_placeholders(updateOrder)
         return register
+
+    @staticmethod
+    def _fk_storage_from_classifier(classified_storage: str) -> str:
+        return "SQL" if classified_storage == "sql" else "NoSQL"
+
+    def _ensure_fk_reference(self, field_name: str, parent_id, updateOrder=None):
+        fk_field = self._foreign_key_field_name(field_name)
+        child_table = self._child_table_name(field_name)
+
+        classified = self.field_classifier.classify_record({fk_field: parent_id})
+        desired_storage = self._fk_storage_from_classifier(classified.get(fk_field, "mongodb"))
+
+        existing = self.foreign_key_refs.get(field_name)
+        old_storage = existing.get("storage") if isinstance(existing, dict) else None
+        if existing is None:
+            self.foreign_key_refs[field_name] = {
+                "fk_field": fk_field,
+                "child_table": child_table,
+                "storage": desired_storage,
+            }
+            if updateOrder is not None:
+                updateOrder.append({
+                    "type": "ALTER",
+                    "table_name": self.table_name,
+                    "column_name": fk_field,
+                    "old_type": None,
+                    "new_type": "int",
+                    "Executer": desired_storage,
+                })
+        else:
+            existing["fk_field"] = fk_field
+            existing["child_table"] = child_table
+            existing["storage"] = desired_storage
+            if old_storage and old_storage != desired_storage and updateOrder is not None:
+                updateOrder.append({
+                    "type": "ALTER",
+                    "table_name": self.table_name,
+                    "column_name": fk_field,
+                    "old_storage": old_storage,
+                    "new_storage": desired_storage,
+                    "new_type": "int",
+                    "Executer": desired_storage,
+                })
+                updateOrder.append({
+                    "type": "INSERT",
+                    "table_name": self.table_name,
+                    "columns": ["table_autogen_id", fk_field],
+                    "values": ["<TRANSFER_ALL_IDS>", f"<COPY:{old_storage}->{desired_storage}:{fk_field}>"],
+                    "column_data_type": "int",
+                    "Executer": desired_storage,
+                    "migration": True,
+                })
+
+        return fk_field, desired_storage
 
     def _resolve_child_payload_split(self, register, payload, updateOrder=None):
         classifications = register.field_classifier.classify_record(payload)
@@ -437,18 +507,6 @@ class MapRegister:
         if updateOrder is not None:
             self.field_classifier.ingest_alter_events(updateOrder)
 
-        # Classify synthetic foreign-key references for shallow nested fields.
-        fk_payload = {
-            self._foreign_key_field_name(k): table_autogen_id
-            for k, v in request.items()
-            if self._is_sql_shallow_nested(v)
-        }
-        if fk_payload:
-            fk_classifications = self.field_classifier.classify_record(fk_payload)
-            self._apply_classifier_storage_decisions(fk_classifications, updateOrder)
-            if updateOrder is not None:
-                self.field_classifier.ingest_alter_events(updateOrder)
-
         self._recalculate_field_classifiers(updateOrder)
         
         # Collect resolved values for INSERT split by storage path.
@@ -461,8 +519,8 @@ class MapRegister:
             value = request[key]
             if self._is_sql_shallow_nested(value):
                 self._store_shallow_nested_insert(key, value, table_autogen_id, updateOrder)
-                fk_field = self._foreign_key_field_name(key)
-                fk_value, fk_storage = self._resolve_field_value(fk_field, table_autogen_id, updateOrder)
+                fk_field, fk_storage = self._ensure_fk_reference(key, table_autogen_id, updateOrder)
+                fk_value = table_autogen_id
                 if fk_storage == "NoSQL":
                     nosql_columns.append(fk_field)
                     nosql_values.append(fk_value)
@@ -479,8 +537,8 @@ class MapRegister:
                 sql_columns.append(key)
                 sql_values.append(resolved_val)
 
-            # Recalculate storage each ResolveRequest for fields currently on SQL.
-            self._recalc_sql_storages(updateOrder=updateOrder)
+        # Recalculate storage each ResolveRequest for fields currently on SQL.
+        self._recalc_sql_storages(updateOrder=updateOrder)
 
         # Every 1000 requests, recalculate storage paths and emit migration placeholders.
         if self.request_count % 1000 == 0:
@@ -547,6 +605,9 @@ class MapRegister:
                             "Executer": executer
                         })
 
+        # Recalculate storage after every delete so remaining SQL/NoSQL assignments stay current.
+        self._recalc_all_storages(updateOrder=updateOrder)
+
         return criteria
 
     def UpdateRequest(self, request, updateOrder=None):
@@ -577,20 +638,6 @@ class MapRegister:
         if updateOrder is not None:
             self.field_classifier.ingest_alter_events(updateOrder)
 
-        fk_parent_id = criteria.get("table_autogen_id")
-        fk_payload = {}
-        if fk_parent_id is not None:
-            fk_payload = {
-                self._foreign_key_field_name(k): fk_parent_id
-                for k, v in updates.items()
-                if self._is_sql_shallow_nested(v)
-            }
-        if fk_payload:
-            fk_classifications = self.field_classifier.classify_record(fk_payload)
-            self._apply_classifier_storage_decisions(fk_classifications, updateOrder)
-            if updateOrder is not None:
-                self.field_classifier.ingest_alter_events(updateOrder)
-
         self._recalculate_field_classifiers(updateOrder)
 
         resolved_criteria = {}
@@ -609,12 +656,9 @@ class MapRegister:
                     updateOrder
                 )
                 if updated_nested:
-                    fk_field = self._foreign_key_field_name(key)
-                    fk_value, fk_storage = self._resolve_field_value(
-                        fk_field,
-                        resolved_criteria.get("table_autogen_id"),
-                        updateOrder
-                    )
+                    parent_id = resolved_criteria.get("table_autogen_id")
+                    fk_field, fk_storage = self._ensure_fk_reference(key, parent_id, updateOrder)
+                    fk_value = parent_id
                     if fk_storage == "NoSQL":
                         nosql_updates[fk_field] = fk_value
                     else:
@@ -684,6 +728,7 @@ class MapRegister:
         state = {
             "map": self.map,
             "nested_registers": self.nested_registers,
+            "foreign_key_refs": self.foreign_key_refs,
             "request_count": self.request_count,
             "created_sql": self._created_sql,
             "created_nosql": self._created_nosql,
@@ -708,6 +753,8 @@ class MapRegister:
         if isinstance(data, dict) and "map" in data:
             self.map = data.get("map", self.map)
             self.nested_registers = data.get("nested_registers", self.nested_registers)
+            self.foreign_key_refs = data.get("foreign_key_refs", self.foreign_key_refs)
+            self._prune_legacy_fk_fields()
             self.request_count = data.get("request_count", self.request_count)
             self._created_sql = data.get("created_sql", self._created_sql)
             self._created_nosql = data.get("created_nosql", self._created_nosql)

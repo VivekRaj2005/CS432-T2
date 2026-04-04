@@ -68,6 +68,64 @@ export default function SchemaPage() {
 		return rows.sort((a, b) => a.key.localeCompare(b.key));
 	}, [schemaData]);
 
+	const fkRows = useMemo(() => {
+		if (!schemaData || typeof schemaData !== "object" || Array.isArray(schemaData)) {
+			return [] as Array<{ field: string; fkField: string; childTable: string; storage: string }>;
+		}
+
+		const refsValue = (schemaData as Record<string, unknown>).foreign_key_references;
+		if (!refsValue || typeof refsValue !== "object" || Array.isArray(refsValue)) {
+			return [];
+		}
+
+		return Object.entries(refsValue as Record<string, unknown>)
+			.map(([field, meta]) => {
+				const ref =
+					typeof meta === "object" && meta !== null && !Array.isArray(meta)
+						? (meta as Record<string, unknown>)
+						: {};
+				return {
+					field,
+					fkField: typeof ref.fk_field === "string" ? ref.fk_field : "-",
+					childTable: typeof ref.child_table === "string" ? ref.child_table : "-",
+					storage: typeof ref.storage === "string" ? ref.storage : "-",
+				};
+			})
+			.sort((a, b) => a.field.localeCompare(b.field));
+	}, [schemaData]);
+
+	const nestedRows = useMemo(() => {
+		if (!schemaData || typeof schemaData !== "object" || Array.isArray(schemaData)) {
+			return [] as Array<{ field: string; table: string; fieldCount: string; requestCount: string }>;
+		}
+
+		const nestedValue = (schemaData as Record<string, unknown>).nested_schema;
+		if (!nestedValue || typeof nestedValue !== "object" || Array.isArray(nestedValue)) {
+			return [];
+		}
+
+		return Object.entries(nestedValue as Record<string, unknown>)
+			.map(([field, nested]) => {
+				const node =
+					typeof nested === "object" && nested !== null && !Array.isArray(nested)
+						? (nested as Record<string, unknown>)
+						: {};
+				return {
+					field,
+					table: typeof node.table_name === "string" ? node.table_name : "-",
+					fieldCount:
+						typeof node.field_count === "number" || typeof node.field_count === "string"
+							? String(node.field_count)
+							: "-",
+					requestCount:
+						typeof node.request_count === "number" || typeof node.request_count === "string"
+							? String(node.request_count)
+							: "-",
+				};
+			})
+			.sort((a, b) => a.field.localeCompare(b.field));
+	}, [schemaData]);
+
 	useEffect(() => {
 		const controller = new AbortController();
 
@@ -117,6 +175,10 @@ export default function SchemaPage() {
 
 				{!loading && !error ? (
 					<div className="space-y-5">
+						<div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-900">
+							Nested fields stay modeled as nested schema. Foreign keys are stored only as cross-store references and may route to SQL or NoSQL based on classification.
+						</div>
+
 						<div>
 							<h2 className="text-base font-semibold text-slate-900">Field Metadata</h2>
 							<p className="mt-1 text-xs text-slate-600">
@@ -152,6 +214,78 @@ export default function SchemaPage() {
 						) : (
 							<p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
 								No response.fields object found in schema payload.
+							</p>
+						)}
+
+						<div>
+							<h2 className="text-base font-semibold text-slate-900">Foreign Key References</h2>
+							<p className="mt-1 text-xs text-slate-600">
+								Reference-only links from parent nested fields to child tables.
+							</p>
+						</div>
+
+						{fkRows.length > 0 ? (
+							<div className="overflow-x-auto rounded-lg border border-slate-200">
+								<table className="min-w-full divide-y divide-slate-200 text-left text-sm">
+									<thead className="bg-slate-50 text-xs font-semibold tracking-wide text-slate-700 uppercase">
+										<tr>
+											<th className="px-4 py-3">Nested Field</th>
+											<th className="px-4 py-3">FK Field</th>
+											<th className="px-4 py-3">Child Table</th>
+											<th className="px-4 py-3">Reference Storage</th>
+										</tr>
+									</thead>
+									<tbody className="divide-y divide-slate-100">
+										{fkRows.map((row) => (
+											<tr key={row.field} className="hover:bg-slate-50/70">
+												<td className="px-4 py-3 font-medium text-slate-900">{row.field}</td>
+												<td className="px-4 py-3 text-slate-700">{row.fkField}</td>
+												<td className="px-4 py-3 text-slate-700">{row.childTable}</td>
+												<td className="px-4 py-3 text-slate-700">{row.storage}</td>
+											</tr>
+										))}
+									</tbody>
+								</table>
+							</div>
+						) : (
+							<p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+								No foreign key reference metadata is available yet.
+							</p>
+						)}
+
+						<div>
+							<h2 className="text-base font-semibold text-slate-900">Nested Schema Tables</h2>
+							<p className="mt-1 text-xs text-slate-600">
+								Nested field groups tracked by child MapRegisters.
+							</p>
+						</div>
+
+						{nestedRows.length > 0 ? (
+							<div className="overflow-x-auto rounded-lg border border-slate-200">
+								<table className="min-w-full divide-y divide-slate-200 text-left text-sm">
+									<thead className="bg-slate-50 text-xs font-semibold tracking-wide text-slate-700 uppercase">
+										<tr>
+											<th className="px-4 py-3">Nested Field</th>
+											<th className="px-4 py-3">Child Table</th>
+											<th className="px-4 py-3">Field Count</th>
+											<th className="px-4 py-3">Request Count</th>
+										</tr>
+									</thead>
+									<tbody className="divide-y divide-slate-100">
+										{nestedRows.map((row) => (
+											<tr key={row.field} className="hover:bg-slate-50/70">
+												<td className="px-4 py-3 font-medium text-slate-900">{row.field}</td>
+												<td className="px-4 py-3 text-slate-700">{row.table}</td>
+												<td className="px-4 py-3 text-slate-700">{row.fieldCount}</td>
+												<td className="px-4 py-3 text-slate-700">{row.requestCount}</td>
+											</tr>
+										))}
+									</tbody>
+								</table>
+							</div>
+						) : (
+							<p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+								No nested schema tables are available yet.
 							</p>
 						)}
 
