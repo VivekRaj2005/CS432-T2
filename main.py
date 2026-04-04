@@ -13,6 +13,9 @@ from utils.scheduler import (
     build_update_queues,
 )
 from utils.settings import HOST, PORT, USERNAME, PASSWORD, DB, CONNECTION
+import os
+import uvicorn
+from server import app
 
 
 async def main():
@@ -21,6 +24,18 @@ async def main():
     sql_queue, nosql_queue = build_update_queues()
     stop_event = asyncio.Event()
     mapRegister = MapRegister(updateOrder=updateOrder)
+    mapRegister.Load("map_register.pkl")
+    app.state.map_register = mapRegister
+    app.state.ingest_queue = q
+    api_server = uvicorn.Server(
+        uvicorn.Config(
+            app,
+            host=os.getenv("API_HOST", "127.0.0.1"),
+            port=int(os.getenv("API_PORT", "8000")),
+            reload=False,
+            log_level="info",
+        )
+    )
     sqlServer = SQLUpdateOrderExecutor(
         host=HOST,
         port=int(PORT),
@@ -29,10 +44,10 @@ async def main():
         database=DB
     )
     mongoServer = MongoUpdateOrderExecutor(connection_string=CONNECTION, database=DB)
+    app.state.sql_server = sqlServer
+    app.state.mongo_server = mongoServer
 
-    stream_task = asyncio.create_task(
-        stream_sse_records(100000, q, stop_event=stop_event, max_queue_size=50)
-    )
+    api_task = asyncio.create_task(api_server.serve())
     record_task = asyncio.create_task(
         process_records(q, mapRegister, updateOrder, stop_event)
     )
@@ -40,17 +55,26 @@ async def main():
         dispatch_updates(updateOrder, sql_queue, nosql_queue, stop_event)
     )
     sql_task = asyncio.create_task(
-        process_sql_updates(sql_queue, sqlServer, stop_event)
+        process_sql_updates(sql_queue, sqlServer, mongoServer, stop_event)
     )
     nosql_task = asyncio.create_task(
         process_nosql_updates(nosql_queue, mongoServer, stop_event)
     )
 
     try:
-        await stream_task
+        await api_task
     finally:
+        mapRegister.Save("map_register.pkl")
         stop_event.set()
-        await asyncio.gather(record_task, dispatch_task, sql_task, nosql_task, return_exceptions=True)
+        api_server.should_exit = True
+        await asyncio.gather(
+            record_task,
+            dispatch_task,
+            sql_task,
+            nosql_task,
+            api_task,
+            return_exceptions=True,
+        )
         sqlServer.close()
         mongoServer.close()
 

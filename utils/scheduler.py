@@ -1,5 +1,6 @@
 
 import asyncio
+import re
 from collections import deque, defaultdict
 from typing import Optional
 from utils.log import scheduler_logger as logger
@@ -181,7 +182,7 @@ async def dispatch_updates(update_order, sql_queue, nosql_queue, stop_event):
     logger.info(f"Update dispatcher complete. Dispatched {dispatch_count} commands total")
 
 
-async def process_sql_updates(sql_queue, sql_server, stop_event):
+async def process_sql_updates(sql_queue, sql_server, mongo_server, stop_event):
     logger.info("Starting SQL update processor...")
     sql_count = 0
     
@@ -191,6 +192,28 @@ async def process_sql_updates(sql_queue, sql_server, stop_event):
             continue
 
         command = sql_queue.popleft()
+        migrated_ids = []
+        migration_column = None
+        if command.get("migration") and command.get("type") == "INSERT":
+            values = command.get("values") or []
+            if len(values) > 1 and isinstance(values[1], str):
+                match = re.match(r"<COPY:(SQL|NoSQL)->(SQL|NoSQL):([^>]+)>", values[1])
+                if match and match.group(1) == "NoSQL" and match.group(2) == "SQL":
+                    migration_column = match.group(3)
+
+            if migration_column:
+                source_rows = await asyncio.to_thread(
+                    mongo_server.fetch_column_snapshot,
+                    command.get("table_name"),
+                    migration_column,
+                )
+                migrated_ids = [row.get("table_autogen_id") for row in source_rows if row.get("table_autogen_id") is not None]
+                command = {
+                    **command,
+                    "migration_column": migration_column,
+                    "transfer_rows": source_rows,
+                }
+
         sql_count += 1
         cmd_type = command.get("type")
         table = command.get("table_name")
@@ -198,6 +221,13 @@ async def process_sql_updates(sql_queue, sql_server, stop_event):
         logger.info(f"Processing SQL {cmd_type} on {table} (count: {sql_count})")
         try:
             await asyncio.to_thread(sql_server.execute_update_order, [command])
+            if migration_column and migrated_ids:
+                await asyncio.to_thread(
+                    mongo_server.remove_column_for_ids,
+                    command.get("table_name"),
+                    migration_column,
+                    migrated_ids,
+                )
             logger.debug(f"SQL {cmd_type} executed successfully")
         except Exception as e:
             logger.error(f"Error executing SQL {cmd_type} command: {e}", exc_info=True)

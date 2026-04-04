@@ -72,6 +72,48 @@ class SQLUpdateOrderExecutor:
 		if self._connection.is_connected():
 			self._connection.close()
 
+	def fetch_records(
+		self,
+		table_name: str,
+		criteria: Optional[Dict[str, Any]] = None,
+		fields: Optional[List[str]] = None,
+		limit: int = 100,
+	) -> List[Dict[str, Any]]:
+		criteria = criteria or {}
+		limit = max(1, min(limit, 1000))
+
+		cursor = self._connection.cursor(dictionary=True)
+		try:
+			if fields:
+				select_cols = ", ".join(_quote_identifier(col) for col in fields)
+			else:
+				select_cols = "*"
+
+			query = f"SELECT {select_cols} FROM {_quote_identifier(table_name)}"
+			values: List[Any] = []
+			if criteria:
+				parts = []
+				for key, value in criteria.items():
+					parts.append(f"{_quote_identifier(key)} = %s")
+					if isinstance(value, (dict, list)):
+						values.append(json.dumps(value))
+					else:
+						values.append(value)
+				query += " WHERE " + " AND ".join(parts)
+
+			query += " LIMIT %s"
+			values.append(limit)
+
+			cursor.execute(query, values)
+			rows = cursor.fetchall() or []
+			return [dict(row) for row in rows]
+		except Error as exc:
+			# Missing table/column during early runs should not crash fetch endpoint.
+			logger.warning("SQL fetch failed for %s: %s", table_name, exc)
+			return []
+		finally:
+			cursor.close()
+
 	def execute_update_order(self, update_order: Iterable[Dict[str, Any]]) -> None:
 		cursor = self._connection.cursor()
 		command_count = 0
@@ -161,7 +203,7 @@ class SQLUpdateOrderExecutor:
 
 	def _execute_insert(self, cursor, command: Dict[str, Any]) -> None:
 		if command.get("migration"):
-			# Migration placeholders from MapRegister are markers, not executable SQL.
+			self._execute_migration_insert(cursor, command)
 			return
 
 		table_name = _quote_identifier(command["table_name"])
@@ -201,6 +243,68 @@ class SQLUpdateOrderExecutor:
 			query += " ON DUPLICATE KEY UPDATE table_autogen_id = VALUES(table_autogen_id)"
 		logger.info(f"Executing INSERT: {query} with values {normalized_values}")
 		cursor.execute(query, normalized_values)
+
+	def _execute_migration_insert(self, cursor, command: Dict[str, Any]) -> None:
+		table_name_raw = command["table_name"]
+		table_name = _quote_identifier(table_name_raw)
+		column_name = command.get("migration_column")
+		transfer_rows = command.get("transfer_rows") or []
+
+		if not column_name:
+			logger.warning(f"Migration INSERT missing migration_column; skipping: {command}")
+			return
+
+		quoted_column = _quote_identifier(column_name)
+
+		# Ensure destination table and migrated column exist before upserting history.
+		create_query = (
+			f"CREATE TABLE IF NOT EXISTS {table_name} "
+			f"({_quote_identifier('table_autogen_id')} BIGINT PRIMARY KEY)"
+		)
+		cursor.execute(create_query)
+		if not self._column_exists(cursor, table_name_raw, column_name):
+			cursor.execute(f"ALTER TABLE {table_name} ADD COLUMN {quoted_column} TEXT")
+
+		if not transfer_rows:
+			logger.info(
+				"No historical NoSQL rows found for migration of %s.%s",
+				table_name_raw,
+				column_name,
+			)
+			return
+
+		query = (
+			f"INSERT INTO {table_name} "
+			f"({_quote_identifier('table_autogen_id')}, {quoted_column}) "
+			"VALUES (%s, %s) "
+			f"ON DUPLICATE KEY UPDATE {quoted_column} = VALUES({quoted_column})"
+		)
+
+		batch_values: List[Any] = []
+		for row in transfer_rows:
+			pk_value = row.get("table_autogen_id")
+			value = row.get(column_name)
+			if pk_value is None:
+				continue
+			if isinstance(value, (dict, list)):
+				value = json.dumps(value)
+			batch_values.append((pk_value, value))
+
+		if not batch_values:
+			logger.info(
+				"Migration rows present but no valid primary keys for %s.%s",
+				table_name_raw,
+				column_name,
+			)
+			return
+
+		logger.info(
+			"Migrating %d historical rows from NoSQL to SQL for %s.%s",
+			len(batch_values),
+			table_name_raw,
+			column_name,
+		)
+		cursor.executemany(query, batch_values)
 
 	def _execute_delete(self, cursor, command: Dict[str, Any]) -> None:
 		criteria: Dict[str, Any] = command.get("criteria") or {}

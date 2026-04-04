@@ -83,6 +83,53 @@ class MongoUpdateOrderExecutor:
 	def _collection(self, table_name: str) -> Collection:
 		return self._db[table_name]
 
+	def fetch_column_snapshot(self, table_name: str, column_name: str) -> List[Dict[str, Any]]:
+		collection = self._collection(table_name)
+		cursor = collection.find(
+			{
+				"table_autogen_id": {"$exists": True},
+				column_name: {"$exists": True},
+			},
+			{"_id": 0, "table_autogen_id": 1, column_name: 1},
+		)
+		return list(cursor)
+
+	def fetch_records(
+		self,
+		table_name: str,
+		criteria: Optional[Dict[str, Any]] = None,
+		fields: Optional[List[str]] = None,
+		limit: int = 100,
+	) -> List[Dict[str, Any]]:
+		criteria = criteria or {}
+		limit = max(1, min(limit, 1000))
+		collection = self._collection(table_name)
+		projection = {"_id": 0}
+		if fields:
+			projection = {"_id": 0}
+			for field in fields:
+				projection[field] = 1
+
+		cursor = collection.find(criteria, projection).limit(limit)
+		return list(cursor)
+
+	def remove_column_for_ids(self, table_name: str, column_name: str, ids: List[Any]) -> int:
+		if not ids:
+			return 0
+
+		collection = self._collection(table_name)
+		result = collection.update_many(
+			{"table_autogen_id": {"$in": ids}},
+			{"$unset": {column_name: ""}},
+		)
+		logger.info(
+			"Removed migrated field '%s' from %d Mongo documents in %s",
+			column_name,
+			result.modified_count,
+			table_name,
+		)
+		return result.modified_count
+
 	def _execute_create(self, command: Dict[str, Any]) -> None:
 		table_name = command["table_name"]
 		collection = self._collection(table_name)
