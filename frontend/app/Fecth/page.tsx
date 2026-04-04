@@ -68,9 +68,20 @@ function parseConditionValue(row: ConditionRow): string | number | boolean {
 
 function parseConditionPayload(row: ConditionRow): { field: string; op: ConditionOperator; value: unknown } {
 	const op = (row.op ?? "eq") as ConditionOperator;
+	const rawValue = row.value.trim();
+
+	if (op === "array_contains" || op === "isMember" || op === "dict_has_key" || op === "dict_has_value") {
+		if (row.type === "number") {
+			return { field: row.field.trim(), op, value: Number(rawValue) };
+		}
+		if (row.type === "boolean") {
+			return { field: row.field.trim(), op, value: rawValue === "true" };
+		}
+		return { field: row.field.trim(), op, value: rawValue };
+	}
 
 	if (op === "array_contains_all" || op === "array_contains_any") {
-		const parsed = JSON.parse(row.value || "[]");
+		const parsed = JSON.parse(rawValue || "[]");
 		if (!Array.isArray(parsed)) {
 			throw new Error(`${op} expects a JSON array value`);
 		}
@@ -85,7 +96,7 @@ function parseConditionPayload(row: ConditionRow): { field: string; op: Conditio
 		return {
 			field: row.field.trim(),
 			op,
-			value: row.value.trim(),
+			value: rawValue,
 		};
 	}
 
@@ -139,7 +150,6 @@ export default function FetchPage() {
 		setResult("");
 		setStatus("Fetching...");
 
-		const payload: Record<string, unknown> = {};
 		const filters: Array<{ field: string; op: ConditionOperator; value: unknown }> = [];
 		try {
 			for (const row of conditions) {
@@ -148,7 +158,6 @@ export default function FetchPage() {
 					continue;
 				}
 				filters.push(parseConditionPayload(row));
-				payload[key] = parseConditionValue(row);
 			}
 		} catch (err) {
 			setIsLoading(false);
@@ -166,9 +175,26 @@ export default function FetchPage() {
 
 		try {
 			const response = await fetch(url.toString(), { method: "GET" });
-			const data = await response.json();
+			const rawBody = await response.text();
+			let data: unknown = null;
+			try {
+				data = rawBody ? JSON.parse(rawBody) : null;
+			} catch {
+				data = null;
+			}
+
 			if (!response.ok) {
-				throw new Error(data?.detail ?? `Request failed: ${response.status}`);
+				const detail =
+					typeof data === "object" && data !== null && "detail" in data
+						? String((data as { detail: unknown }).detail)
+						: rawBody.slice(0, 200);
+				throw new Error(detail || `Request failed: ${response.status}`);
+			}
+
+			if (data === null) {
+				throw new Error(
+					`Expected JSON from ${url.toString()} but got non-JSON response. Check NEXT_PUBLIC_FETCH_ENDPOINT and ensure it points to /fetch.`,
+				);
 			}
 
 			setStatus("Fetched");
@@ -200,7 +226,7 @@ export default function FetchPage() {
 					<div className="space-y-2 text-xs text-slate-700">
 						<p><span className="font-semibold">Numeric:</span> salary &gt;= 50000</p>
 						<p><span className="font-semibold">Not Equals:</span> dept_name != &quot;HR&quot;</p>
-						<p><span className="font-semibold">Membership:</span> tags isMember &quot;urgent&quot;</p>
+						<p><span className="font-semibold">Membership (single value):</span> tags isMember Home</p>
 						<p><span className="font-semibold">Length Math:</span> len(tags) &gt; 2+3</p>
 						<p><span className="font-semibold">Array Contains All:</span> tags array_contains_all [&quot;urgent&quot;, &quot;prod&quot;]</p>
 						<p><span className="font-semibold">Dict Key:</span> profile dict_has_key &quot;skills&quot;</p>
@@ -339,7 +365,9 @@ export default function FetchPage() {
 											value={row.value}
 											onChange={(e) => updateCondition(row.id, (prev) => ({ ...prev, value: e.target.value }))}
 											placeholder={
-												row.type === "array"
+												(row.op ?? "eq") === "isMember"
+													? "single value, e.g. Home"
+													: row.type === "array"
 													? "JSON array, e.g. [\"urgent\",\"prod\"]"
 													: row.type === "dict"
 														? "JSON object, e.g. {\"role\":\"admin\"}"
