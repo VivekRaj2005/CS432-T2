@@ -1,4 +1,4 @@
-from utils.log import logger
+from utils.log import resolve_logger as logger
 from json import loads
 
 from utils.settings import PERSISTANCE, STABILITY

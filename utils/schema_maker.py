@@ -1,6 +1,7 @@
-from collections import defaultdict, deque
+from collections import defaultdict, deque, Counter
 import json
 import os
+from utils.log import schema_maker_logger as logger
 
 
 class SchemaInfere:
@@ -53,6 +54,8 @@ class SchemaInfere:
         # change-> UPDATE
         # remove-> DELETE
         # get-> SELECT
+        logger.info(f"Starting queue_reader with {len(rec_queue)} total records")
+        record_count = 0
         while rec_queue:
             item = rec_queue.popleft()
             if isinstance(item, tuple):
@@ -62,11 +65,15 @@ class SchemaInfere:
             event = event.lower().strip()
             if event in ('create', 'add'):
                 self.add_record(record)
+                record_count += 1
             else:
                 self.all_records.append(('__event__', event, record))
+        
+        logger.info(f"Queue reader processed {record_count} records total")
         self.flush()
 
         schema = self.build_schema()
+        logger.info(f"Schema built with {len(schema.get('tables', {}))} tables")
         self._log_create_tables(schema)
 
         for item in self.all_records:
@@ -78,6 +85,7 @@ class SchemaInfere:
 
         # Write operations_sql.json after all ops are generated
         self._save_ops_json()
+        logger.info("Schema inference complete")
 
         return schema
 
@@ -87,11 +95,13 @@ class SchemaInfere:
         self.buffer_1000.append(record)
 
         if len(self.buffer_400) >= 400:
+            logger.debug(f"Processing 400-record buffer (total records: {len(self.all_records)})")
             self.process_400()
             self._check_schema_changes()   # emit ALTER TABLE if anything changed
             self.buffer_400.clear()
 
         if len(self.buffer_1000) >= 1000:
+            logger.debug(f"Processing 1000-record buffer (total records: {len(self.all_records)})")
             self.process_1000()
             self._check_schema_changes()   # emit ALTER TABLE if anything changed
             self.buffer_1000.clear()
@@ -132,12 +142,16 @@ class SchemaInfere:
                     continue
                 col_vals[col].append(val)
 
+        dependencies_found = 0
         for key in self.unique_fields:
             for col in col_vals:
                 if col == key:
                     continue
                 if self.is_dependent(key, col, self.buffer_400):
                     self.entities[key].add(col)
+                    dependencies_found += 1
+        
+        logger.debug(f"process_400: Detected {dependencies_found} entity dependencies from 400 records")
 
     #Relations detection and update
 
@@ -163,7 +177,10 @@ class SchemaInfere:
                     continue
                 if self.is_dependent(key, col, self.buffer_1000):
                     self.fd[key].add(col)
+        
+        logger.debug(f"process_1000: Detected functional dependencies: {dict(self.fd)}")
 
+        fk_count = 0
         for A in col_vals:
             if is_list[A] or A in self.unique_fields:
                 continue
@@ -174,10 +191,17 @@ class SchemaInfere:
                 set_B = set(v for v in col_vals[B] if not isinstance(v, list))
                 if set_A and set_A.issubset(set_B):
                     self.foreign_keys.add((A, B))
+                    fk_count += 1
 
+        logger.debug(f"process_1000: Detected {fk_count} foreign key relationships")
+
+        m2m_count = 0
         for col, flag in is_list.items():
             if flag:
                 self.m2m.add(col)
+                m2m_count += 1
+        
+        logger.debug(f"process_1000: Detected {m2m_count} many-to-many relationships")
 
     #Schema change detection
 
@@ -246,11 +270,22 @@ class SchemaInfere:
     #Final Schema Building
 
     def build_schema(self):
+        logger.info("Building schema from collected data...")
         clean_entities = self.resolve_conflicts()
+        logger.debug(f"Resolved conflicts for {len(clean_entities)} entities")
+        
         tables         = self.build_tables(clean_entities)
+        logger.debug(f"Built {len(tables)} base tables")
+        
         junction_tables = self.build_junction_tables(tables)
+        logger.debug(f"Built {len(junction_tables)} junction tables for M2M relationships")
+        
         tables          = self.attach_foreign_keys(tables, junction_tables)
         tables.update(junction_tables)
+        
+        logger.info(f"Detected {len(self.foreign_keys)} foreign key relationships")
+        logger.info(f"Detected {len(self.m2m)} many-to-many relationships")
+        logger.info(f"Detected {len(self.fd)} functional dependencies")
 
         schema = {
             "tables": tables,
@@ -444,8 +479,10 @@ class SchemaInfere:
         if pk_val not in self._seen_pks[table_name]:
             self._seen_pks[table_name].add(pk_val)
             op_type = "INSERT"
+            logger.debug(f"First occurrence of PK {pk_val} in {table_name} → INSERT")
         else:
             op_type = "UPDATE"
+            logger.debug(f"Repeat occurrence of PK {pk_val} in {table_name} → UPDATE")
 
         op = {
             "type":       op_type,
@@ -572,10 +609,14 @@ class SchemaInfere:
         from datetime import datetime
         ops   = self._all_ops_log
         total = len(ops)
+        
+        logger.info(f"Generating {total} operations SQL statements")
 
         # Count by type for metadata
         from collections import Counter
         counts = Counter(o.get('type','').upper() for o in ops)
+        
+        logger.info(f"Operation breakdown: {dict(counts)}")
 
         generated_queries = []
         for idx, op in enumerate(ops, start=1):
@@ -615,12 +656,15 @@ class SchemaInfere:
         path = os.path.join(self.output_dir, 'operations_sql.json')
         with open(path, 'w') as f:
             json.dump(output, f, indent=2, default=list)
+        logger.info(f'operations_sql.json saved with {total} queries → {path}')
         print(f'[SchemaInfere] operations_sql.json saved → {path}')
 
     def _save_schema(self, schema):
         path = os.path.join(self.output_dir, "schema.json")
+        table_count = len(schema.get('tables', {}))
         with open(path, "w") as f:
             json.dump(schema, f, indent=2, default=list)
+        logger.info(f'Schema saved with {table_count} tables → {path}')
         print(f"[SchemaInfere] Schema saved → {path}")
 
     def _log_operations(self, operations):
@@ -633,6 +677,8 @@ class SchemaInfere:
                 f.write(json.dumps(op) + "\n")
         # Keep in-memory copy for operations_sql.json
         self._all_ops_log.extend(operations)
+        op_types = Counter(o.get('type','UN') for o in operations)
+        logger.debug(f'{len(operations)} operation(s) logged to {path} → {dict(op_types)}')
         print(f"[SchemaInfere] {len(operations)} operation(s) logged → {path}")
 
 #Testing

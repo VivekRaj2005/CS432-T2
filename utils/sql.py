@@ -1,11 +1,12 @@
 import json
 import os
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional, Set
+from collections import defaultdict
 
 import mysql.connector
 from mysql.connector import Error
-from utils.log import logger
+from utils.log import sql_logger as logger
 
 
 def _quote_identifier(name: str) -> str:
@@ -32,7 +33,9 @@ class SQLUpdateOrderExecutor:
 		user: str,
 		password: str,
 		database: str,
+		schema_manager=None,
 	):
+		logger.info(f"Initializing SQL executor: {user}@{host}:{port}/{database}")
 		self._connection = mysql.connector.connect(
 			host=host,
 			port=port,
@@ -41,6 +44,29 @@ class SQLUpdateOrderExecutor:
 			database=database,
 			autocommit=False,
 		)
+		logger.info("Connected to MySQL successfully")
+		# Optional schema manager for schema-aware operations and PK tracking
+		self.schema_manager = schema_manager
+		# Track seen PKs per table: table_name -> set of PK values
+		self._seen_pks: Dict[str, Set[Any]] = defaultdict(set)
+
+	def mark_pk_inserted(self, table_name: str, pk_value: Any) -> None:
+		"""Track that a primary key has been inserted."""
+		self._seen_pks[table_name].add(pk_value)
+
+	def is_first_insert(self, table_name: str, pk_value: Any) -> bool:
+		"""Check if this PK value has been seen before."""
+		return pk_value not in self._seen_pks[table_name]
+
+	def unmark_pk(self, table_name: str, pk_value: Any) -> None:
+		"""Remove a PK from tracking (e.g., after DELETE)."""
+		self._seen_pks[table_name].discard(pk_value)
+
+	def get_schema(self) -> Optional[Dict]:
+		"""Get the current schema from schema manager."""
+		if self.schema_manager:
+			return self.schema_manager.get_schema()
+		return None
 
 	def close(self) -> None:
 		if self._connection.is_connected():
@@ -48,12 +74,18 @@ class SQLUpdateOrderExecutor:
 
 	def execute_update_order(self, update_order: Iterable[Dict[str, Any]]) -> None:
 		cursor = self._connection.cursor()
+		command_count = 0
 		try:
+			logger.info("Starting SQL update order processing...")
 			for command in update_order:
 				if command.get("Executer") != "SQL":
 					continue
 
 				command_type = command.get("type")
+				table_name = command.get("table_name", "unknown")
+				command_count += 1
+				logger.debug(f"Executing SQL {command_type} on {table_name} (cmd #{command_count})")
+				
 				if command_type == "CREATE":
 					self._execute_create(cursor, command)
 				elif command_type == "ALTER":
@@ -66,6 +98,7 @@ class SQLUpdateOrderExecutor:
 					self._execute_delete(cursor, command)
 
 			self._connection.commit()
+			logger.info(f"SQL update order complete. Executed {command_count} commands")
 		except Exception as e:
 			self._connection.rollback()
 			logger.error("Error executing update order, rolled back transaction", exc_info=True)  
@@ -132,6 +165,7 @@ class SQLUpdateOrderExecutor:
 			return
 
 		table_name = _quote_identifier(command["table_name"])
+		table_name_raw = command["table_name"]
 		columns: List[str] = command.get("columns", [])
 		values: List[Any] = command.get("values", [])
 
@@ -144,6 +178,12 @@ class SQLUpdateOrderExecutor:
 				normalized_values.append(json.dumps(value))
 			else:
 				normalized_values.append(value)
+
+		# Track primary key if available
+		if "table_autogen_id" in columns:
+			pk_idx = columns.index("table_autogen_id")
+			pk_value = values[pk_idx]
+			self.mark_pk_inserted(table_name_raw, pk_value)
 
 		quoted_columns = ", ".join(_quote_identifier(c) for c in columns)
 		placeholders = ", ".join(["%s"] * len(columns))

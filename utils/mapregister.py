@@ -1,20 +1,25 @@
 import json
 import os
-from typing import Dict, Tuple
-from utils.log import logger
+from typing import Dict, Tuple, Optional
+from utils.log import mapregister_logger as logger
 from utils.resolve import Metadata
+from utils.Classify import FieldClassifier
 from tabulate import tabulate
 from pickle import dumps, loads
 
 
 class MapRegister:
-    def __init__(self, table_name="root", updateOrder=None, save_file_name='map_register.pkl'):
+    def __init__(self, table_name="root", updateOrder=None, save_file_name='map_register.pkl', schema_manager=None):
         self.table_name = table_name
         self.map = {"table_autogen_id": Metadata(type_="int", auto=True)}
         self.request_count = 0
         self._created_sql = False
         self._created_nosql = False
         self.save_file_name = save_file_name
+        # Initialize the field classifier for dynamic SQL/NoSQL decisions
+        self.field_classifier = FieldClassifier()
+        # Optional schema manager for schema-aware operations and conflict resolution
+        self.schema_manager = schema_manager
         # Emit CREATE placeholders as soon as the register is initialized.
         self._emit_create_placeholders(updateOrder)
 
@@ -74,6 +79,56 @@ class MapRegister:
             meta.reCalcStorage()
             if old_storage != meta.storage:
                 self._emit_storage_migration_placeholders(updateOrder, key, old_storage, meta.storage)
+
+    def _apply_classifier_storage_decisions(self, classifications: Dict[str, str], updateOrder=None) -> None:
+        """
+        Apply classifier decisions to update field storage paths.
+        Overrides the default storage calculation with classifier-based decisions.
+        
+        Args:
+            classifications: Dict mapping field names to "sql" or "mongodb"
+            updateOrder: Optional list to append migration commands to
+        """
+        for field, classified_storage in classifications.items():
+            if field not in self.map or not isinstance(self.map[field], Metadata):
+                continue
+            
+            meta = self.map[field]
+            # Map classifier output ("sql"/"mongodb") to our storage terminology ("SQL"/"NoSQL")
+            new_storage = "SQL" if classified_storage == "sql" else "NoSQL"
+            old_storage = meta.storage
+            
+            if old_storage != new_storage:
+                logger.info(
+                    "FieldClassifier: '%s' storage changed %s -> %s",
+                    field, old_storage, new_storage
+                )
+                meta.storage = new_storage
+                self._emit_storage_migration_placeholders(updateOrder, field, old_storage, new_storage)
+
+    def ingest_into_schema(self, record: Dict[str, any]) -> None:
+        """
+        Optionally ingest a record into the schema manager for schema inference.
+        
+        Args:
+            record: Record to ingest
+        """
+        if self.schema_manager:
+            self.schema_manager.ingest_record(record)
+
+    def resolve_field_ownership(self, field: str) -> Optional[str]:
+        """
+        Resolve which table a field belongs to using schema manager.
+        
+        Args:
+            field: Field name
+            
+        Returns:
+            Table name or None if unresolved
+        """
+        if self.schema_manager:
+            return self.schema_manager.get_table_for_field(field)
+        return None
 
     def _normalize_request(self, request):
         if isinstance(request, str):
@@ -153,8 +208,20 @@ class MapRegister:
     def ResolveRequest(self, request, updateOrder=None):
         request = self._normalize_request(request)
         self._emit_create_placeholders(updateOrder)
+        
+        # Optionally ingest into schema manager for schema inference
+        self.ingest_into_schema(request)
+        
         table_autogen_id = self.map['table_autogen_id'].resolveValue() # Increment the auto ID for each request
         self.request_count += 1
+        
+        # Classify the record to determine SQL vs NoSQL storage for each field
+        classifications = self.field_classifier.classify_record(request)
+        self._apply_classifier_storage_decisions(classifications, updateOrder)
+        
+        # Feed any ALTER events from prior requests to the classifier for stability tracking
+        if updateOrder is not None:
+            self.field_classifier.ingest_alter_events(updateOrder)
         
         # Collect resolved values for INSERT split by storage path.
         sql_columns = ["table_autogen_id"]
@@ -276,6 +343,17 @@ class MapRegister:
             logger.warning("UpdateRequest has no fields to update; skipping")
             return {"criteria": criteria, "updates": updates}
 
+        # Optionally ingest into schema manager for schema inference
+        self.ingest_into_schema(updates)
+        
+        # Classify the update payload to determine storage for updated fields
+        classifications = self.field_classifier.classify_record(updates)
+        self._apply_classifier_storage_decisions(classifications, updateOrder)
+        
+        # Feed any ALTER events from prior requests to the classifier for stability tracking
+        if updateOrder is not None:
+            self.field_classifier.ingest_alter_events(updateOrder)
+
         resolved_criteria = {}
         for key, value in criteria.items():
             resolved_criteria[key] = self._coerce_delete_value(key, value)
@@ -353,6 +431,22 @@ class MapRegister:
     RemoveRequest = DeleteRequest
     ChangeRequest = UpdateRequest
     
+    def get_field_classifications(self) -> Dict[str, str]:
+        """Get all field classifications from the FieldClassifier."""
+        return self.field_classifier.classifications.copy()
+    
+    def get_cardinality_report(self) -> list:
+        """Get cardinality analysis report from FieldClassifier."""
+        return self.field_classifier.cardinality_report()
+    
+    def get_stability_report(self) -> list:
+        """Get stability analysis report from FieldClassifier."""
+        return self.field_classifier.stability_report()
+    
+    def get_length_variance_report(self) -> list:
+        """Get length variance analysis report from FieldClassifier."""
+        return self.field_classifier.length_variance_report()
+    
     def __repr__(self):
         # print("MapRegister __repr__ called; preparing tabulated output")
         # print(f"Current map contents: {self.map}")
@@ -367,7 +461,9 @@ class MapRegister:
             "request_count": self.request_count,
             "created_sql": self._created_sql,
             "created_nosql": self._created_nosql,
-            "table_name": self.table_name
+            "table_name": self.table_name,
+            "field_classifier": self.field_classifier,
+            "schema_manager": self.schema_manager
         }
         with open(filename, "wb") as f:
             f.write(dumps(state))
@@ -389,6 +485,11 @@ class MapRegister:
             self._created_sql = data.get("created_sql", self._created_sql)
             self._created_nosql = data.get("created_nosql", self._created_nosql)
             self.table_name = data.get("table_name", self.table_name)
+            # Restore field classifier if available, otherwise use fresh instance
+            self.field_classifier = data.get("field_classifier", FieldClassifier())
+            # Restore schema manager if available
+            if "schema_manager" in data and data["schema_manager"]:
+                self.schema_manager = data["schema_manager"]
         else:
             self.map = data
         logger.info(f"MapRegister loaded from {filename}")

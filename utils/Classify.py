@@ -5,7 +5,7 @@ import pickle
 from collections import defaultdict
 from typing import Any, Dict
 
-from utils.log import logger
+from utils.log import classify_logger as logger
 
 ALTER_DEMOTION_RATIO   = 0.05
 LENGTH_VARIANCE_CUTOFF = 2000.0

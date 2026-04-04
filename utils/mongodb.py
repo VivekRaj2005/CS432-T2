@@ -1,9 +1,10 @@
-from typing import Any, Dict, Iterable, List
+from typing import Any, Dict, Iterable, List, Set, Optional
+from collections import defaultdict
 
 from pymongo import MongoClient
 from pymongo.collection import Collection
 
-from utils.log import logger
+from utils.log import mongodb_logger as logger
 
 
 class MongoUpdateOrderExecutor:
@@ -15,24 +16,57 @@ class MongoUpdateOrderExecutor:
 		username: str = None,
 		password: str = None,
 		connection_string: str = None,
+		schema_manager=None,
 	):
 		if connection_string:
+			logger.info(f"Connecting to MongoDB using connection string")
 			self._client = MongoClient(connection_string)
 		elif username and password:
+			logger.info(f"Connecting to MongoDB: {username}@{host}:{port}")
 			self._client = MongoClient(host=host, port=port, username=username, password=password)
 		else:
+			logger.info(f"Connecting to MongoDB: {host}:{port}")
 			self._client = MongoClient(host=host, port=port)
 		self._db = self._client[database]
+		logger.info(f"Connected to MongoDB database: {database}")
+		# Optional schema manager for schema-aware operations
+		self.schema_manager = schema_manager
+		# Track seen PKs per collection: collection_name -> set of PK values
+		self._seen_pks: Dict[str, Set[Any]] = defaultdict(set)
+
+	def mark_pk_inserted(self, collection_name: str, pk_value: Any) -> None:
+		"""Track that a primary key has been inserted."""
+		self._seen_pks[collection_name].add(pk_value)
+
+	def is_first_insert(self, collection_name: str, pk_value: Any) -> bool:
+		"""Check if this PK value has been seen before."""
+		return pk_value not in self._seen_pks[collection_name]
+
+	def unmark_pk(self, collection_name: str, pk_value: Any) -> None:
+		"""Remove a PK from tracking (e.g., after DELETE)."""
+		self._seen_pks[collection_name].discard(pk_value)
+
+	def get_schema(self) -> Optional[Dict]:
+		"""Get the current schema from schema manager."""
+		if self.schema_manager:
+			return self.schema_manager.get_schema()
+		return None
 
 	def close(self) -> None:
 		self._client.close()
 
 	def execute_update_order(self, update_order: Iterable[Dict[str, Any]]) -> None:
+		logger.info("Starting MongoDB update order processing...")
+		command_count = 0
 		for command in update_order:
 			if command.get("Executer") != "NoSQL":
 				continue
 
 			command_type = command.get("type")
+			table_name = command.get("table_name", "unknown")
+			command_count += 1
+			logger.debug(f"Executing MongoDB {command_type} on {table_name} (cmd #{command_count})")
+			
 			if command_type == "CREATE":
 				self._execute_create(command)
 			elif command_type == "ALTER":
@@ -43,6 +77,8 @@ class MongoUpdateOrderExecutor:
 				self._execute_update(command)
 			elif command_type in {"DELETE", "REMOVE"}:
 				self._execute_delete(command)
+		
+		logger.info(f"MongoDB update order complete. Executed {command_count} commands")
 
 	def _collection(self, table_name: str) -> Collection:
 		return self._db[table_name]
@@ -77,13 +113,17 @@ class MongoUpdateOrderExecutor:
 			logger.warning(f"NoSQL INSERT missing table_autogen_id; skipping: {command}")
 			return
 
+		# Track the PK
+		pk_value = document["table_autogen_id"]
+		self.mark_pk_inserted(table_name, pk_value)
+
 		collection = self._collection(table_name)
 		collection.update_one(
-			{"table_autogen_id": document["table_autogen_id"]},
+			{"table_autogen_id": pk_value},
 			{"$set": document},
 			upsert=True,
 		)
-		logger.info(f"Mongo upsert for {table_name} id={document['table_autogen_id']}")
+		logger.info(f"Mongo upsert for {table_name} id={pk_value}")
 
 	def _execute_delete(self, command: Dict[str, Any]) -> None:
 		criteria: Dict[str, Any] = command.get("criteria") or {}
@@ -92,6 +132,10 @@ class MongoUpdateOrderExecutor:
 			return
 
 		table_name = command["table_name"]
+		# If deleting by table_autogen_id, unmark it
+		if "table_autogen_id" in criteria:
+			self.unmark_pk(table_name, criteria["table_autogen_id"])
+		
 		collection = self._collection(table_name)
 		result = collection.delete_many(criteria)
 		logger.info(f"Mongo delete for {table_name} matched={result.deleted_count} criteria={criteria}")
