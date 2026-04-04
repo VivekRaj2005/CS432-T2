@@ -12,6 +12,8 @@ class MapRegister:
     def __init__(self, table_name="root", updateOrder=None, save_file_name='map_register.pkl', schema_manager=None):
         self.table_name = table_name
         self.map = {"table_autogen_id": Metadata(type_="int", auto=True)}
+        # Child registers per nested field for depth-1 nested data persisted in SQL.
+        self.nested_registers = {}
         self.request_count = 0
         self._created_sql = False
         self._created_nosql = False
@@ -87,6 +89,17 @@ class MapRegister:
             if old_storage != meta.storage:
                 self._emit_storage_migration_placeholders(updateOrder, key, old_storage, meta.storage)
 
+    def _recalc_sql_storages(self, updateOrder=None):
+        for key, meta in self.map.items():
+            if not isinstance(meta, Metadata) or key == "table_autogen_id":
+                continue
+            if meta.storage != "SQL":
+                continue
+            old_storage = meta.storage
+            meta.reCalcStorage()
+            if old_storage != meta.storage:
+                self._emit_storage_migration_placeholders(updateOrder, key, old_storage, meta.storage)
+
     def _apply_classifier_storage_decisions(self, classifications: Dict[str, str], updateOrder=None) -> None:
         """
         Apply classifier decisions to update field storage paths.
@@ -121,6 +134,191 @@ class MapRegister:
             return
         classifications = self.field_classifier.recalculate_classifications()
         self._apply_classifier_storage_decisions(classifications, updateOrder)
+
+    @staticmethod
+    def _nesting_depth(value) -> int:
+        if isinstance(value, dict):
+            if not value:
+                return 1
+            return 1 + max(MapRegister._nesting_depth(v) for v in value.values())
+        if isinstance(value, list):
+            if not value:
+                return 1
+            return 1 + max(MapRegister._nesting_depth(v) for v in value)
+        return 0
+
+    def _is_sql_shallow_nested(self, value) -> bool:
+        return isinstance(value, (dict, list)) and self._nesting_depth(value) <= 1
+
+    def _child_table_name(self, field_name: str) -> str:
+        return f"{self.table_name}__{field_name}"
+
+    @staticmethod
+    def _foreign_key_field_name(field_name: str) -> str:
+        return f"{field_name}_fk"
+
+    def _get_or_create_nested_register(self, field_name: str, updateOrder=None):
+        child_table = self._child_table_name(field_name)
+        register = self.nested_registers.get(field_name)
+        if register is None:
+            register = MapRegister(
+                table_name=child_table,
+                updateOrder=None,
+                save_file_name=f"{self.save_file_name}.{field_name}",
+                schema_manager=self.schema_manager,
+            )
+            self.nested_registers[field_name] = register
+        register._emit_create_placeholders(updateOrder)
+        return register
+
+    def _resolve_child_payload_split(self, register, payload, updateOrder=None):
+        classifications = register.field_classifier.classify_record(payload)
+        register._apply_classifier_storage_decisions(classifications, updateOrder)
+        if updateOrder is not None:
+            register.field_classifier.ingest_alter_events(updateOrder)
+        register.request_count += 1
+        register._recalculate_field_classifiers(updateOrder)
+
+        sql_updates = {}
+        nosql_updates = {}
+        for nested_key, nested_value in payload.items():
+            if nested_key in register.map and isinstance(register.map[nested_key], Metadata):
+                old_type = self._metadata_type_name(register.map[nested_key])
+                old_storage = register.map[nested_key].storage
+                resolved_val = register.map[nested_key].resolveValue(nested_value)
+                new_type = self._metadata_type_name(register.map[nested_key])
+                new_storage = register.map[nested_key].storage
+                if old_type != new_type and updateOrder is not None:
+                    updateOrder.append({
+                        "type": "ALTER",
+                        "table_name": register.table_name,
+                        "column_name": nested_key,
+                        "old_type": old_type,
+                        "new_type": new_type,
+                        "Executer": new_storage
+                    })
+                if old_storage != new_storage:
+                    register._emit_storage_migration_placeholders(updateOrder, nested_key, old_storage, new_storage)
+            else:
+                register.map[nested_key] = Metadata(type_="UNK")
+                resolved_val = register.map[nested_key].resolveValue(nested_value)
+                if updateOrder is not None:
+                    updateOrder.append({
+                        "type": "ALTER",
+                        "table_name": register.table_name,
+                        "column_name": nested_key,
+                        "old_type": None,
+                        "new_type": self._metadata_type_name(register.map[nested_key]),
+                        "Executer": register.map[nested_key].storage
+                    })
+
+            if register.map[nested_key].storage == "NoSQL":
+                nosql_updates[nested_key] = resolved_val
+            else:
+                sql_updates[nested_key] = resolved_val
+
+        if register.request_count % 1000 == 0:
+            register._recalc_all_storages(updateOrder=updateOrder)
+        if register.request_count % 100 == 0:
+            register.Save(register.save_file_name)
+
+        return sql_updates, nosql_updates
+
+    def _store_shallow_nested_insert(self, field_name: str, value, parent_id, updateOrder=None):
+        payload = value if isinstance(value, dict) else {"value": value}
+        register = self._get_or_create_nested_register(field_name, updateOrder)
+        sql_updates, nosql_updates = self._resolve_child_payload_split(register, payload, updateOrder)
+        if updateOrder is not None:
+            if sql_updates:
+                columns = ["table_autogen_id"] + list(sql_updates.keys())
+                values = [parent_id] + list(sql_updates.values())
+                updateOrder.append({
+                    "type": "INSERT",
+                    "table_name": register.table_name,
+                    "columns": columns,
+                    "values": values,
+                    "Executer": "SQL"
+                })
+            if nosql_updates:
+                columns = ["table_autogen_id"] + list(nosql_updates.keys())
+                values = [parent_id] + list(nosql_updates.values())
+                updateOrder.append({
+                    "type": "INSERT",
+                    "table_name": register.table_name,
+                    "columns": columns,
+                    "values": values,
+                    "Executer": "NoSQL"
+                })
+
+    def _store_shallow_nested_update(self, field_name: str, value, parent_criteria, updateOrder=None) -> bool:
+        parent_id = parent_criteria.get("table_autogen_id") if isinstance(parent_criteria, dict) else None
+        if parent_id is None:
+            logger.warning(
+                "Skipping shallow nested SQL update for '%s': criteria missing table_autogen_id",
+                field_name
+            )
+            return False
+
+        payload = value if isinstance(value, dict) else {"value": value}
+        register = self._get_or_create_nested_register(field_name, updateOrder)
+        sql_updates, nosql_updates = self._resolve_child_payload_split(register, payload, updateOrder)
+        if updateOrder is not None:
+            if sql_updates:
+                updateOrder.append({
+                    "type": "UPDATE",
+                    "table_name": register.table_name,
+                    "criteria": {"table_autogen_id": parent_id},
+                    "set_fields": sql_updates,
+                    "Executer": "SQL"
+                })
+            if nosql_updates:
+                updateOrder.append({
+                    "type": "UPDATE",
+                    "table_name": register.table_name,
+                    "criteria": {"table_autogen_id": parent_id},
+                    "set_fields": nosql_updates,
+                    "Executer": "NoSQL"
+                })
+        return True
+
+    def _resolve_field_value(self, key, value, updateOrder=None):
+        if key in self.map and isinstance(self.map[key], Metadata):
+            old_type = self._metadata_type_name(self.map[key])
+            old_storage = self.map[key].storage
+            resolved_val = self.map[key].resolveValue(value)
+            new_type = self._metadata_type_name(self.map[key])
+            new_storage = self.map[key].storage
+
+            if old_type != new_type and updateOrder is not None:
+                updateOrder.append({
+                    "type": "ALTER",
+                    "table_name": self.table_name,
+                    "column_name": key,
+                    "old_type": old_type,
+                    "new_type": new_type,
+                    "Executer": new_storage
+                })
+            if old_storage != new_storage:
+                self._emit_storage_migration_placeholders(updateOrder, key, old_storage, new_storage)
+        else:
+            if key in self.map and not isinstance(self.map[key], Metadata):
+                logger.warning(
+                    "Column '%s' had legacy nested MapRegister metadata. Replacing with Metadata(UNK).",
+                    key
+                )
+            self.map[key] = Metadata(type_="UNK")
+            resolved_val = self.map[key].resolveValue(value)
+            if updateOrder is not None:
+                updateOrder.append({
+                    "type": "ALTER",
+                    "table_name": self.table_name,
+                    "column_name": key,
+                    "old_type": None,
+                    "new_type": self._metadata_type_name(self.map[key]),
+                    "Executer": self.map[key].storage
+                })
+
+        return resolved_val, self.map[key].storage
 
     def ingest_into_schema(self, record: Dict[str, any]) -> None:
         """
@@ -239,6 +437,18 @@ class MapRegister:
         if updateOrder is not None:
             self.field_classifier.ingest_alter_events(updateOrder)
 
+        # Classify synthetic foreign-key references for shallow nested fields.
+        fk_payload = {
+            self._foreign_key_field_name(k): table_autogen_id
+            for k, v in request.items()
+            if self._is_sql_shallow_nested(v)
+        }
+        if fk_payload:
+            fk_classifications = self.field_classifier.classify_record(fk_payload)
+            self._apply_classifier_storage_decisions(fk_classifications, updateOrder)
+            if updateOrder is not None:
+                self.field_classifier.ingest_alter_events(updateOrder)
+
         self._recalculate_field_classifiers(updateOrder)
         
         # Collect resolved values for INSERT split by storage path.
@@ -249,49 +459,28 @@ class MapRegister:
         
         for key in request:
             value = request[key]
-            # Dict/list are kept as single columns and resolved by Metadata.
-            if key in self.map and isinstance(self.map[key], Metadata):
-                old_type = self._metadata_type_name(self.map[key])
-                old_storage = self.map[key].storage
-                resolved_val = self.map[key].resolveValue(value)
-                new_type = self._metadata_type_name(self.map[key])
-                new_storage = self.map[key].storage
+            if self._is_sql_shallow_nested(value):
+                self._store_shallow_nested_insert(key, value, table_autogen_id, updateOrder)
+                fk_field = self._foreign_key_field_name(key)
+                fk_value, fk_storage = self._resolve_field_value(fk_field, table_autogen_id, updateOrder)
+                if fk_storage == "NoSQL":
+                    nosql_columns.append(fk_field)
+                    nosql_values.append(fk_value)
+                else:
+                    sql_columns.append(fk_field)
+                    sql_values.append(fk_value)
+                continue
+            resolved_val, storage = self._resolve_field_value(key, value, updateOrder)
 
-                if old_type != new_type and updateOrder is not None:
-                    updateOrder.append({
-                        "type": "ALTER",
-                        "table_name": self.table_name,
-                        "column_name": key,
-                        "old_type": old_type,
-                        "new_type": new_type,
-                        "Executer": new_storage
-                    })
-                if old_storage != new_storage:
-                    self._emit_storage_migration_placeholders(updateOrder, key, old_storage, new_storage)
-            else:
-                if key in self.map and not isinstance(self.map[key], Metadata):
-                    logger.warning(
-                        "Column '%s' had legacy nested MapRegister metadata. Replacing with Metadata(UNK).",
-                        key
-                    )
-                self.map[key] = Metadata(type_="UNK")
-                resolved_val = self.map[key].resolveValue(value)
-                if updateOrder is not None:
-                    updateOrder.append({
-                        "type": "ALTER",
-                        "table_name": self.table_name,
-                        "column_name": key,
-                        "old_type": None,
-                        "new_type": self._metadata_type_name(self.map[key]),
-                        "Executer": self.map[key].storage
-                    })
-
-            if self.map[key].storage == "NoSQL":
+            if storage == "NoSQL":
                 nosql_columns.append(key)
                 nosql_values.append(resolved_val)
             else:
                 sql_columns.append(key)
                 sql_values.append(resolved_val)
+
+            # Recalculate storage each ResolveRequest for fields currently on SQL.
+            self._recalc_sql_storages(updateOrder=updateOrder)
 
         # Every 1000 requests, recalculate storage paths and emit migration placeholders.
         if self.request_count % 1000 == 0:
@@ -343,6 +532,21 @@ class MapRegister:
                     "Executer": executer
                 })
 
+            # Cascade delete shallow nested SQL rows by shared table_autogen_id.
+            parent_id = criteria.get("table_autogen_id")
+            if parent_id is not None:
+                for nested_field, nested_register in self.nested_registers.items():
+                    nested_register._emit_create_placeholders(updateOrder)
+                    for executer in ("SQL", "NoSQL"):
+                        updateOrder.append({
+                            "type": "DELETE",
+                            "table_name": nested_register.table_name,
+                            "criteria": {"table_autogen_id": parent_id},
+                            "columns": ["table_autogen_id"],
+                            "values": [parent_id],
+                            "Executer": executer
+                        })
+
         return criteria
 
     def UpdateRequest(self, request, updateOrder=None):
@@ -373,6 +577,20 @@ class MapRegister:
         if updateOrder is not None:
             self.field_classifier.ingest_alter_events(updateOrder)
 
+        fk_parent_id = criteria.get("table_autogen_id")
+        fk_payload = {}
+        if fk_parent_id is not None:
+            fk_payload = {
+                self._foreign_key_field_name(k): fk_parent_id
+                for k, v in updates.items()
+                if self._is_sql_shallow_nested(v)
+            }
+        if fk_payload:
+            fk_classifications = self.field_classifier.classify_record(fk_payload)
+            self._apply_classifier_storage_decisions(fk_classifications, updateOrder)
+            if updateOrder is not None:
+                self.field_classifier.ingest_alter_events(updateOrder)
+
         self._recalculate_field_classifiers(updateOrder)
 
         resolved_criteria = {}
@@ -383,43 +601,29 @@ class MapRegister:
         nosql_updates = {}
 
         for key, value in updates.items():
-            if key in self.map and isinstance(self.map[key], Metadata):
-                old_type = self._metadata_type_name(self.map[key])
-                old_storage = self.map[key].storage
-                resolved_val = self.map[key].resolveValue(value)
-                new_type = self._metadata_type_name(self.map[key])
-                new_storage = self.map[key].storage
-
-                if old_type != new_type and updateOrder is not None:
-                    updateOrder.append({
-                        "type": "ALTER",
-                        "table_name": self.table_name,
-                        "column_name": key,
-                        "old_type": old_type,
-                        "new_type": new_type,
-                        "Executer": new_storage
-                    })
-                if old_storage != new_storage:
-                    self._emit_storage_migration_placeholders(updateOrder, key, old_storage, new_storage)
-            else:
-                if key in self.map and not isinstance(self.map[key], Metadata):
-                    logger.warning(
-                        "Column '%s' had legacy nested MapRegister metadata. Replacing with Metadata(UNK).",
-                        key
+            if self._is_sql_shallow_nested(value):
+                updated_nested = self._store_shallow_nested_update(
+                    key,
+                    value,
+                    resolved_criteria,
+                    updateOrder
+                )
+                if updated_nested:
+                    fk_field = self._foreign_key_field_name(key)
+                    fk_value, fk_storage = self._resolve_field_value(
+                        fk_field,
+                        resolved_criteria.get("table_autogen_id"),
+                        updateOrder
                     )
-                self.map[key] = Metadata(type_="UNK")
-                resolved_val = self.map[key].resolveValue(value)
-                if updateOrder is not None:
-                    updateOrder.append({
-                        "type": "ALTER",
-                        "table_name": self.table_name,
-                        "column_name": key,
-                        "old_type": None,
-                        "new_type": self._metadata_type_name(self.map[key]),
-                        "Executer": self.map[key].storage
-                    })
+                    if fk_storage == "NoSQL":
+                        nosql_updates[fk_field] = fk_value
+                    else:
+                        sql_updates[fk_field] = fk_value
+                    continue
 
-            if self.map[key].storage == "NoSQL":
+            resolved_val, storage = self._resolve_field_value(key, value, updateOrder)
+
+            if storage == "NoSQL":
                 nosql_updates[key] = resolved_val
             else:
                 sql_updates[key] = resolved_val
@@ -479,6 +683,7 @@ class MapRegister:
             filename = "map_register.pkl"
         state = {
             "map": self.map,
+            "nested_registers": self.nested_registers,
             "request_count": self.request_count,
             "created_sql": self._created_sql,
             "created_nosql": self._created_nosql,
@@ -502,6 +707,7 @@ class MapRegister:
         # Backward compatibility for older map-only checkpoints.
         if isinstance(data, dict) and "map" in data:
             self.map = data.get("map", self.map)
+            self.nested_registers = data.get("nested_registers", self.nested_registers)
             self.request_count = data.get("request_count", self.request_count)
             self._created_sql = data.get("created_sql", self._created_sql)
             self._created_nosql = data.get("created_nosql", self._created_nosql)
