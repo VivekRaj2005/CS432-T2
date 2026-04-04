@@ -2,7 +2,10 @@ from __future__ import annotations
 
 import ast
 import json
+from collections import deque
+from pathlib import Path
 from typing import Any
+from datetime import datetime
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -147,6 +150,36 @@ def _get_ingest_queue() -> Any:
     return queue
 
 
+def _get_update_order() -> Any:
+    update_order = getattr(app.state, "update_order", None)
+    if update_order is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Update order is not attached. Start API through main.py.",
+        )
+    return update_order
+
+
+def _get_sql_queue() -> Any:
+    sql_queue = getattr(app.state, "sql_queue", None)
+    if sql_queue is None:
+        raise HTTPException(
+            status_code=503,
+            detail="SQL queue is not attached. Start API through main.py.",
+        )
+    return sql_queue
+
+
+def _get_nosql_queue() -> Any:
+    nosql_queue = getattr(app.state, "nosql_queue", None)
+    if nosql_queue is None:
+        raise HTTPException(
+            status_code=503,
+            detail="NoSQL queue is not attached. Start API through main.py.",
+        )
+    return nosql_queue
+
+
 def _get_register() -> Any:
     register = getattr(app.state, "map_register", None)
     if register is None:
@@ -155,6 +188,20 @@ def _get_register() -> Any:
             detail="MapRegister is not attached. Start API through main.py.",
         )
     return register
+
+
+def _json_safe(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {str(key): _json_safe(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_json_safe(item) for item in value]
+    if isinstance(value, tuple):
+        return [_json_safe(item) for item in value]
+    if isinstance(value, set):
+        return [_json_safe(item) for item in value]
+    if isinstance(value, (str, int, float, bool)) or value is None:
+        return value
+    return str(value)
 
 
 def _decode_conditions(conditions: str | None) -> dict[str, Any]:
@@ -408,6 +455,46 @@ def _merge_by_id(sql_rows: list[dict[str, Any]], nosql_rows: list[dict[str, Any]
     return list(merged.values())
 
 
+def _build_runtime_dump() -> dict[str, Any]:
+    register = _get_register()
+    update_order = _get_update_order()
+    ingest_queue = _get_ingest_queue()
+    sql_queue = _get_sql_queue()
+    nosql_queue = _get_nosql_queue()
+
+    return {
+        "schema_version": 1,
+        "created_at": datetime.utcnow().isoformat() + "Z",
+        "map_register": register._register_state(),
+        "update_order": _json_safe(list(update_order)),
+        "ingest_queue": _json_safe(list(ingest_queue)),
+        "sql_queue": _json_safe(list(sql_queue)),
+        "nosql_queue": _json_safe(list(nosql_queue)),
+    }
+
+
+def _load_runtime_dump(dump: dict[str, Any]) -> None:
+    register = _get_register()
+    update_order = _get_update_order()
+    ingest_queue = _get_ingest_queue()
+    sql_queue = _get_sql_queue()
+    nosql_queue = _get_nosql_queue()
+
+    register._load_register_state(dump.get("map_register", {}))
+
+    update_order.clear()
+    update_order.extend(dump.get("update_order", []) or [])
+
+    ingest_queue.clear()
+    ingest_queue.extend(dump.get("ingest_queue", []) or [])
+
+    sql_queue.clear()
+    sql_queue.extend(dump.get("sql_queue", []) or [])
+
+    nosql_queue.clear()
+    nosql_queue.extend(dump.get("nosql_queue", []) or [])
+
+
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
@@ -426,6 +513,94 @@ def get_schema() -> dict[str, Any]:
 @app.get("/map-register")
 def get_map_register() -> dict[str, Any]:
     return get_schema()
+
+
+@app.get("/dump")
+def dump_runtime_state(path: str = Query(default="runtime_dump.json")) -> dict[str, Any]:
+    dump = _build_runtime_dump()
+    dump_path = Path(path)
+    if not dump_path.parent.exists():
+        dump_path.parent.mkdir(parents=True, exist_ok=True)
+
+    with dump_path.open("w", encoding="utf-8") as handle:
+        json.dump(dump, handle, indent=2, ensure_ascii=False)
+
+    return {
+        "status": "saved",
+        "path": str(dump_path),
+        "update_order_count": len(dump.get("update_order", [])),
+        "ingest_queue_count": len(dump.get("ingest_queue", [])),
+    }
+
+
+@app.get("/dump-json")
+def dump_runtime_state_json() -> dict[str, Any]:
+    return _build_runtime_dump()
+
+
+@app.post("/load-dump")
+def load_runtime_state(payload: dict[str, Any]) -> dict[str, Any]:
+    path = payload.get("path") if isinstance(payload, dict) else None
+    if not isinstance(path, str) or not path.strip():
+        raise HTTPException(status_code=400, detail="'path' is required")
+
+    dump_path = Path(path.strip())
+    if not dump_path.exists():
+        raise HTTPException(status_code=404, detail=f"Dump file not found: {dump_path}")
+
+    with dump_path.open("r", encoding="utf-8") as handle:
+        dump = json.load(handle)
+
+    if not isinstance(dump, dict) or "map_register" not in dump:
+        raise HTTPException(status_code=400, detail="Invalid dump file")
+
+    _load_runtime_dump(dump)
+
+    return {
+        "status": "loaded",
+        "path": str(dump_path),
+        "update_order_count": len(getattr(app.state, "update_order", [])),
+        "ingest_queue_count": len(getattr(app.state, "ingest_queue", [])),
+    }
+
+
+@app.post("/load-dump-json")
+def load_runtime_state_json(payload: dict[str, Any]) -> dict[str, Any]:
+    if not isinstance(payload, dict):
+        raise HTTPException(status_code=400, detail="Payload must be a JSON object")
+
+    dump = payload.get("dump") if "dump" in payload else payload
+    if not isinstance(dump, dict):
+        raise HTTPException(status_code=400, detail="'dump' must be a JSON object")
+
+    if "map_register" in dump:
+        _load_runtime_dump(dump)
+        return {
+            "status": "loaded",
+            "mode": "json-runtime",
+            "update_order_count": len(getattr(app.state, "update_order", [])),
+            "ingest_queue_count": len(getattr(app.state, "ingest_queue", [])),
+        }
+
+    rows = dump.get("data")
+    if isinstance(rows, list):
+        queue = _get_ingest_queue()
+        queued = 0
+        for row in rows:
+            if isinstance(row, dict):
+                queue.append({"event": "add", "data": row})
+                queued += 1
+        return {
+            "status": "queued",
+            "mode": "json-data",
+            "queued_records": queued,
+            "ingest_queue_count": len(queue),
+        }
+
+    raise HTTPException(
+        status_code=400,
+        detail="Invalid dump payload: expected 'map_register' runtime dump or 'data' list",
+    )
 
 
 @app.get("/fetch")

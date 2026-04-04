@@ -34,6 +34,110 @@ class MapRegister:
             return f"list<{sub}>"
         return meta.type
 
+    @staticmethod
+    def _json_safe(value):
+        if isinstance(value, dict):
+            return {str(key): MapRegister._json_safe(item) for key, item in value.items()}
+        if isinstance(value, list):
+            return [MapRegister._json_safe(item) for item in value]
+        if isinstance(value, tuple):
+            return [MapRegister._json_safe(item) for item in value]
+        if isinstance(value, set):
+            return [MapRegister._json_safe(item) for item in value]
+        if isinstance(value, (str, int, float, bool)) or value is None:
+            return value
+        return str(value)
+
+    @classmethod
+    def _metadata_to_state(cls, meta: Metadata) -> dict:
+        return {
+            "type": meta.type,
+            "subtype": cls._metadata_to_state(meta.subtype) if meta.subtype else None,
+            "auto": meta.auto,
+            "current_value": meta.current_value,
+            "stabiltiy": meta.stabiltiy,
+            "persistance": meta.persistance,
+            "length": meta.length,
+            "storage": meta.storage,
+            "idX": meta.idX,
+            "type_locked": meta.type_locked,
+        }
+
+    @classmethod
+    def _metadata_from_state(cls, state):
+        if not isinstance(state, dict):
+            return state
+        meta = Metadata(type_=state.get("type", "UNK"), auto=bool(state.get("auto", False)))
+        meta.current_value = state.get("current_value")
+        meta.stabiltiy = state.get("stabiltiy", meta.stabiltiy)
+        meta.persistance = state.get("persistance", meta.persistance)
+        meta.length = state.get("length", meta.length)
+        meta.storage = state.get("storage", meta.storage)
+        meta.idX = state.get("idX", meta.idX)
+        meta.type_locked = bool(state.get("type_locked", False))
+        subtype = state.get("subtype")
+        if isinstance(subtype, dict):
+            meta.subtype = cls._metadata_from_state(subtype)
+        return meta
+
+    def _register_state(self) -> dict:
+        return {
+            "table_name": self.table_name,
+            "request_count": self.request_count,
+            "created_sql": self._created_sql,
+            "created_nosql": self._created_nosql,
+            "save_file_name": self.save_file_name,
+            "map": {
+                key: self._metadata_to_state(value) if isinstance(value, Metadata) else self._json_safe(value)
+                for key, value in self.map.items()
+            },
+            "nested_registers": {
+                key: nested._register_state()
+                for key, nested in self.nested_registers.items()
+            },
+            "foreign_key_refs": self._json_safe(self.foreign_key_refs),
+            "field_classifier": self.field_classifier.to_state(),
+        }
+
+    def _load_register_state(self, state: dict) -> None:
+        if not isinstance(state, dict):
+            raise ValueError("Invalid register state")
+
+        self.table_name = state.get("table_name", self.table_name)
+        self.request_count = state.get("request_count", self.request_count)
+        self._created_sql = state.get("created_sql", self._created_sql)
+        self._created_nosql = state.get("created_nosql", self._created_nosql)
+        self.save_file_name = state.get("save_file_name", self.save_file_name)
+
+        raw_map = state.get("map", {}) or {}
+        restored_map = {}
+        for key, value in raw_map.items():
+            if isinstance(value, dict) and value.get("type") in {"int", "str", "float", "bool", "list", "dict", "UNK"}:
+                restored_map[key] = self._metadata_from_state(value)
+            else:
+                restored_map[key] = value
+        self.map = restored_map or {"table_autogen_id": Metadata(type_="int", auto=True)}
+
+        nested_state = state.get("nested_registers", {}) or {}
+        restored_nested = {}
+        for key, child_state in nested_state.items():
+            child = MapRegister(
+                table_name=child_state.get("table_name", self._child_table_name(key)),
+                updateOrder=None,
+                save_file_name=child_state.get("save_file_name", f"{self.save_file_name}.{key}"),
+                schema_manager=self.schema_manager,
+            )
+            child._load_register_state(child_state)
+            restored_nested[key] = child
+        self.nested_registers = restored_nested
+
+        self.foreign_key_refs = state.get("foreign_key_refs", self.foreign_key_refs) or {}
+        self._prune_legacy_fk_fields()
+
+        classifier_state = state.get("field_classifier")
+        if classifier_state is not None:
+            self.field_classifier.load_state(classifier_state)
+
     def _emit_create_placeholders(self, updateOrder):
         if updateOrder is None:
             return
@@ -744,6 +848,46 @@ class MapRegister:
         with open(filename, "wb") as f:
             f.write(dumps(state))
         logger.info(f"MapRegister saved to {filename}")
+
+    def SaveJSON(self, filename, update_order=None, ingest_queue=None, sql_queue=None, nosql_queue=None):
+        dump = {
+            "schema_version": 1,
+            "map_register": self._register_state(),
+            "update_order": self._json_safe(list(update_order) if update_order is not None else []),
+            "ingest_queue": self._json_safe(list(ingest_queue) if ingest_queue is not None else []),
+            "sql_queue": self._json_safe(list(sql_queue) if sql_queue is not None else []),
+            "nosql_queue": self._json_safe(list(nosql_queue) if nosql_queue is not None else []),
+        }
+        with open(filename, "w", encoding="utf-8") as handle:
+            json.dump(dump, handle, indent=2, ensure_ascii=False)
+        logger.info("MapRegister runtime dump saved to %s", filename)
+
+    def LoadJSON(self, filename, update_order=None, ingest_queue=None, sql_queue=None, nosql_queue=None):
+        if not os.path.exists(filename):
+            logger.error("File %s does not exist; cannot load JSON dump", filename)
+            return
+        with open(filename, "r", encoding="utf-8") as handle:
+            dump = json.load(handle)
+
+        if not isinstance(dump, dict) or "map_register" not in dump:
+            raise ValueError("Invalid JSON dump format")
+
+        self._load_register_state(dump.get("map_register", {}))
+
+        if update_order is not None:
+            update_order.clear()
+            update_order.extend(dump.get("update_order", []) or [])
+        if ingest_queue is not None:
+            ingest_queue.clear()
+            ingest_queue.extend(dump.get("ingest_queue", []) or [])
+        if sql_queue is not None:
+            sql_queue.clear()
+            sql_queue.extend(dump.get("sql_queue", []) or [])
+        if nosql_queue is not None:
+            nosql_queue.clear()
+            nosql_queue.extend(dump.get("nosql_queue", []) or [])
+
+        logger.info("MapRegister runtime dump loaded from %s", filename)
     
     def Load(self, filename=None):
         if filename is None:

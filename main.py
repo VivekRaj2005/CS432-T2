@@ -27,6 +27,9 @@ async def main():
     mapRegister.Load("map_register.pkl")
     app.state.map_register = mapRegister
     app.state.ingest_queue = q
+    app.state.update_order = updateOrder
+    app.state.sql_queue = sql_queue
+    app.state.nosql_queue = nosql_queue
     api_server = uvicorn.Server(
         uvicorn.Config(
             app,

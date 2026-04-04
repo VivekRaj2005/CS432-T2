@@ -35,6 +35,21 @@ class PresenceTracker:
             return 0.0
         return self.present_count.get(field, 0) / self.total_records
 
+    def to_state(self) -> dict:
+        return {
+            "total_records": self.total_records,
+            "present_count": dict(self.present_count),
+        }
+
+    @classmethod
+    def from_state(cls, state: dict | None):
+        tracker = cls()
+        if not isinstance(state, dict):
+            return tracker
+        tracker.total_records = int(state.get("total_records", 0) or 0)
+        tracker.present_count.update(state.get("present_count", {}) or {})
+        return tracker
+
 
 class CardinalityTracker:
     def __init__(self):
@@ -65,6 +80,23 @@ class CardinalityTracker:
             "is_unique":         self.is_unique(field),
         }
 
+    def to_state(self) -> dict:
+        return {
+            "total_seen": dict(self.total_seen),
+            "unique_values": {field: list(values) for field, values in self.unique_values.items()},
+        }
+
+    @classmethod
+    def from_state(cls, state: dict | None):
+        tracker = cls()
+        if not isinstance(state, dict):
+            return tracker
+        tracker.total_seen.update(state.get("total_seen", {}) or {})
+        unique_values = state.get("unique_values", {}) or {}
+        for field, values in unique_values.items():
+            tracker.unique_values[field].update(values if isinstance(values, list) else [])
+        return tracker
+
 
 class StabilityTracker:
     def __init__(self):
@@ -86,6 +118,17 @@ class StabilityTracker:
             "alter_ratio": self.alter_ratio(field, total_seen),
             "is_unstable": self.is_unstable(field, total_seen),
         }
+
+    def to_state(self) -> dict:
+        return {"alter_count": dict(self.alter_count)}
+
+    @classmethod
+    def from_state(cls, state: dict | None):
+        tracker = cls()
+        if not isinstance(state, dict):
+            return tracker
+        tracker.alter_count.update(state.get("alter_count", {}) or {})
+        return tracker
 
 
 class LengthVarianceTracker:
@@ -118,6 +161,23 @@ class LengthVarianceTracker:
             "std_dev":          round(math.sqrt(self.variance(field)), 2),
             "is_high_variance": self.is_high_variance(field),
         }
+
+    def to_state(self) -> dict:
+        return {
+            "_n": dict(self._n),
+            "_mean": dict(self._mean),
+            "_M2": dict(self._M2),
+        }
+
+    @classmethod
+    def from_state(cls, state: dict | None):
+        tracker = cls()
+        if not isinstance(state, dict):
+            return tracker
+        tracker._n.update(state.get("_n", {}) or {})
+        tracker._mean.update(state.get("_mean", {}) or {})
+        tracker._M2.update(state.get("_M2", {}) or {})
+        return tracker
 
 
 class FieldClassifier:
@@ -161,6 +221,24 @@ class FieldClassifier:
                 }, fh)
         except Exception as exc:
             logger.error("FieldClassifier: failed to save state – %s", exc)
+
+    def to_state(self) -> dict:
+        return {
+            "classifications": dict(self.classifications),
+            "presence_tracker": self.presence_tracker.to_state(),
+            "cardinality_tracker": self.cardinality_tracker.to_state(),
+            "stability_tracker": self.stability_tracker.to_state(),
+            "length_tracker": self.length_tracker.to_state(),
+        }
+
+    def load_state(self, state: dict | None) -> None:
+        if not isinstance(state, dict):
+            return
+        self.classifications = dict(state.get("classifications", {}) or {})
+        self.presence_tracker = PresenceTracker.from_state(state.get("presence_tracker"))
+        self.cardinality_tracker = CardinalityTracker.from_state(state.get("cardinality_tracker"))
+        self.stability_tracker = StabilityTracker.from_state(state.get("stability_tracker"))
+        self.length_tracker = LengthVarianceTracker.from_state(state.get("length_tracker"))
 
     def ingest_alter_events(self, update_order) -> None:
         for op in update_order:

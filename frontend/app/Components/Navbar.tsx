@@ -17,6 +17,7 @@ const defaultActions: NavbarAction[] = [
 	{ label: "Update", href: "/Update" },
 	{ label: "Delete", href: "/Delete" },
 	{ label: "View Schema", href: "/Schema" },
+	{ label: "Dump/Load", href: "/DumpLoad" },
 ];
 
 export default function Navbar({
