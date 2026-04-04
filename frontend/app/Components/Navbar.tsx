@@ -14,8 +14,8 @@ type NavbarProps = {
 const defaultActions: NavbarAction[] = [
 	{ label: "Create", href: "/Create" },
     { label: "Get", href: "/Fetch" },
-	{ label: "Update", href: "#update" },
-	{ label: "Delete", href: "#delete" },
+	{ label: "Update", href: "/Update" },
+	{ label: "Delete", href: "/Delete" },
 	{ label: "View Schema", href: "/Schema" },
 ];
 

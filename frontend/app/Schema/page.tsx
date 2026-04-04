@@ -15,6 +15,59 @@ export default function SchemaPage() {
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 
+	const fieldRows = useMemo(() => {
+		if (!schemaData || typeof schemaData !== "object" || Array.isArray(schemaData)) {
+			return [] as Array<{
+				key: string;
+				type: string;
+				subtype: string;
+				storage: string;
+				samplesSeen: string;
+			}>;
+		}
+
+		const fieldsValue = (schemaData as Record<string, unknown>).fields;
+		if (!fieldsValue || typeof fieldsValue !== "object" || Array.isArray(fieldsValue)) {
+			return [];
+		}
+
+		const rows = Object.entries(fieldsValue as Record<string, unknown>).map(([fieldKey, fieldValue]) => {
+			const meta =
+				typeof fieldValue === "object" && fieldValue !== null && !Array.isArray(fieldValue)
+					? (fieldValue as Record<string, unknown>)
+					: {};
+
+			const type = typeof meta.type === "string" ? meta.type : "-";
+			const storage = typeof meta.storage === "string" ? meta.storage : "-";
+			const samplesSeenRaw = meta.samples_seen;
+			const samplesSeen =
+				typeof samplesSeenRaw === "number" || typeof samplesSeenRaw === "string"
+					? String(samplesSeenRaw)
+					: "-";
+
+			let subtype = "-";
+			const subtypeRaw = meta.subtype;
+			if (typeof subtypeRaw === "string") {
+				subtype = subtypeRaw;
+			} else if (typeof subtypeRaw === "object" && subtypeRaw !== null && !Array.isArray(subtypeRaw)) {
+				const subtypeType = (subtypeRaw as Record<string, unknown>).type;
+				subtype = typeof subtypeType === "string" ? subtypeType : JSON.stringify(subtypeRaw);
+			} else if (subtypeRaw !== null && subtypeRaw !== undefined) {
+				subtype = String(subtypeRaw);
+			}
+
+			return {
+				key: fieldKey,
+				type,
+				subtype,
+				storage,
+				samplesSeen,
+			};
+		});
+
+		return rows.sort((a, b) => a.key.localeCompare(b.key));
+	}, [schemaData]);
+
 	useEffect(() => {
 		const controller = new AbortController();
 
@@ -63,11 +116,56 @@ export default function SchemaPage() {
 				{!loading && error ? <p className="text-red-600">Error: {error}</p> : null}
 
 				{!loading && !error ? (
-					<pre className="overflow-x-auto whitespace-pre-wrap break-words">
-						{typeof schemaData === "string"
-							? schemaData
-							: JSON.stringify(schemaData, null, 2)}
-					</pre>
+					<div className="space-y-5">
+						<div>
+							<h2 className="text-base font-semibold text-slate-900">Field Metadata</h2>
+							<p className="mt-1 text-xs text-slate-600">
+								Showing all entries from response.fields.
+							</p>
+						</div>
+
+						{fieldRows.length > 0 ? (
+							<div className="overflow-x-auto rounded-lg border border-slate-200">
+								<table className="min-w-full divide-y divide-slate-200 text-left text-sm">
+									<thead className="bg-slate-50 text-xs font-semibold tracking-wide text-slate-700 uppercase">
+										<tr>
+											<th className="px-4 py-3">Key</th>
+											<th className="px-4 py-3">Type</th>
+											<th className="px-4 py-3">Subtype</th>
+											<th className="px-4 py-3">Storage</th>
+											<th className="px-4 py-3">samples_seen</th>
+										</tr>
+									</thead>
+									<tbody className="divide-y divide-slate-100">
+										{fieldRows.map((row) => (
+											<tr key={row.key} className="hover:bg-slate-50/70">
+												<td className="px-4 py-3 font-medium text-slate-900">{row.key}</td>
+												<td className="px-4 py-3 text-slate-700">{row.type}</td>
+												<td className="px-4 py-3 text-slate-700">{row.subtype}</td>
+												<td className="px-4 py-3 text-slate-700">{row.storage}</td>
+												<td className="px-4 py-3 text-slate-700">{row.samplesSeen}</td>
+											</tr>
+										))}
+									</tbody>
+								</table>
+							</div>
+						) : (
+							<p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+								No response.fields object found in schema payload.
+							</p>
+						)}
+
+						<details className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+							<summary className="cursor-pointer text-xs font-semibold tracking-wide text-slate-700 uppercase">
+								Raw Response
+							</summary>
+							<pre className="mt-3 overflow-x-auto whitespace-pre-wrap break-words text-xs text-slate-700">
+								{typeof schemaData === "string"
+									? schemaData
+									: JSON.stringify(schemaData, null, 2)}
+							</pre>
+						</details>
+					</div>
 				) : null}
 			</div>
 		</main>

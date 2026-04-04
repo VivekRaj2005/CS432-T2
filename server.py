@@ -408,6 +408,240 @@ def create_record(payload: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+@app.post("/update")
+def update_record(payload: dict[str, Any]) -> dict[str, Any]:
+    if not isinstance(payload, dict) or not payload:
+        raise HTTPException(status_code=400, detail="Payload cannot be empty")
+
+    # Accept common aliases to keep the endpoint tolerant of client variations.
+    criteria = payload.get("criteria")
+    if criteria is None:
+        criteria = payload.get("criterias")
+    if criteria is None:
+        criteria = payload.get("where")
+    if criteria is None:
+        criteria = payload.get("filter")
+
+    conditions = payload.get("conditions")
+    if conditions is None:
+        conditions = payload.get("condition")
+    if conditions is None:
+        conditions = payload.get("filters")
+
+    set_fields = payload.get("set")
+    if set_fields is None:
+        set_fields = payload.get("updates")
+    if set_fields is None:
+        set_fields = payload.get("changes")
+    if set_fields is None:
+        set_fields = payload.get("values")
+
+    if not isinstance(set_fields, dict) or not set_fields:
+        raise HTTPException(status_code=400, detail="'set' must be a non-empty object")
+
+    queue = _get_ingest_queue()
+    # Backward-compatible direct criteria mode.
+    if isinstance(criteria, dict) and criteria:
+        queue.append(
+            {
+                "event": "update",
+                "data": {
+                    "criteria": criteria,
+                    "set": set_fields,
+                },
+            }
+        )
+        return {
+            "status": "queued",
+            "event": "update",
+            "mode": "criteria",
+            "criteria_fields": list(criteria.keys()),
+            "set_fields": list(set_fields.keys()),
+            "queue_size": len(queue),
+        }
+
+    # Fetch-style conditions mode for advanced matching operators.
+    if not isinstance(conditions, dict) or not conditions:
+        raise HTTPException(
+            status_code=400,
+            detail="Provide either non-empty 'criteria' or non-empty 'conditions' object",
+        )
+
+    filters = _normalize_filters(conditions)
+    if not filters:
+        raise HTTPException(status_code=400, detail="No usable filters were provided in 'conditions'")
+
+    source = str(payload.get("source", "merged")).lower()
+    if source not in {"sql", "nosql", "merged"}:
+        raise HTTPException(status_code=400, detail="source must be one of: sql, nosql, merged")
+
+    try:
+        limit = int(payload.get("limit", 1000))
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail="limit must be an integer") from exc
+    limit = max(1, min(limit, 1000))
+
+    register = _get_register()
+    sql_server = getattr(app.state, "sql_server", None)
+    mongo_server = getattr(app.state, "mongo_server", None)
+    if sql_server is None or mongo_server is None:
+        raise HTTPException(status_code=503, detail="Database executors are not attached")
+
+    table_name = register.table_name
+    read_limit = min(max(limit * 5, 200), 1000)
+    sql_rows = sql_server.fetch_records(table_name=table_name, criteria={}, limit=read_limit)
+    nosql_rows = mongo_server.fetch_records(table_name=table_name, criteria={}, limit=read_limit)
+
+    if source == "sql":
+        rows = sql_rows
+    elif source == "nosql":
+        rows = nosql_rows
+    else:
+        rows = _merge_by_id(sql_rows, nosql_rows)
+
+    matched_rows = _apply_filters(rows, filters)[:limit]
+    matched_ids = []
+    seen_ids = set()
+    for row in matched_rows:
+        row_id = row.get("table_autogen_id")
+        if row_id is None or row_id in seen_ids:
+            continue
+        seen_ids.add(row_id)
+        matched_ids.append(row_id)
+
+    for row_id in matched_ids:
+        queue.append(
+            {
+                "event": "update",
+                "data": {
+                    "criteria": {"table_autogen_id": row_id},
+                    "set": set_fields,
+                },
+            }
+        )
+
+    return {
+        "status": "queued",
+        "event": "update",
+        "mode": "conditions",
+        "source": source,
+        "filters": filters,
+        "matched_rows": len(matched_rows),
+        "queued_updates": len(matched_ids),
+        "set_fields": list(set_fields.keys()),
+        "queue_size": len(queue),
+    }
+
+
+@app.post("/delete")
+def delete_record(payload: dict[str, Any]) -> dict[str, Any]:
+    if not isinstance(payload, dict) or not payload:
+        raise HTTPException(status_code=400, detail="Payload cannot be empty")
+
+    # Accept common aliases to keep the endpoint tolerant of client variations.
+    criteria = payload.get("criteria")
+    if criteria is None:
+        criteria = payload.get("criterias")
+    if criteria is None:
+        criteria = payload.get("where")
+    if criteria is None:
+        criteria = payload.get("filter")
+
+    conditions = payload.get("conditions")
+    if conditions is None:
+        conditions = payload.get("condition")
+    if conditions is None:
+        conditions = payload.get("filters")
+
+    full_delete = bool(payload.get("full_delete", False))
+
+    source = str(payload.get("source", "merged")).lower()
+    if source not in {"sql", "nosql", "merged"}:
+        raise HTTPException(status_code=400, detail="source must be one of: sql, nosql, merged")
+
+    try:
+        limit = int(payload.get("limit", 1000))
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail="limit must be an integer") from exc
+    limit = max(1, min(limit, 1000))
+
+    queue = _get_ingest_queue()
+    # Backward-compatible direct criteria mode.
+    if isinstance(criteria, dict) and criteria:
+        queue.append(
+            {
+                "event": "delete",
+                "data": criteria,
+            }
+        )
+        return {
+            "status": "queued",
+            "event": "delete",
+            "mode": "criteria",
+            "criteria_fields": list(criteria.keys()),
+            "queue_size": len(queue),
+        }
+
+    filters: list[dict[str, Any]] = []
+    # Fetch-style conditions mode for advanced matching operators.
+    if isinstance(conditions, dict) and conditions:
+        filters = _normalize_filters(conditions)
+        if not filters:
+            raise HTTPException(status_code=400, detail="No usable filters were provided in 'conditions'")
+    elif not full_delete:
+        raise HTTPException(
+            status_code=400,
+            detail="Provide either non-empty 'criteria' or non-empty 'conditions' object",
+        )
+
+    register = _get_register()
+    sql_server = getattr(app.state, "sql_server", None)
+    mongo_server = getattr(app.state, "mongo_server", None)
+    if sql_server is None or mongo_server is None:
+        raise HTTPException(status_code=503, detail="Database executors are not attached")
+
+    table_name = register.table_name
+    read_limit = min(max(limit * 5, 200), 1000)
+    sql_rows = sql_server.fetch_records(table_name=table_name, criteria={}, limit=read_limit)
+    nosql_rows = mongo_server.fetch_records(table_name=table_name, criteria={}, limit=read_limit)
+
+    if source == "sql":
+        rows = sql_rows
+    elif source == "nosql":
+        rows = nosql_rows
+    else:
+        rows = _merge_by_id(sql_rows, nosql_rows)
+
+    matched_rows = rows[:limit] if full_delete and not filters else _apply_filters(rows, filters)[:limit]
+    matched_ids = []
+    seen_ids = set()
+    for row in matched_rows:
+        row_id = row.get("table_autogen_id")
+        if row_id is None or row_id in seen_ids:
+            continue
+        seen_ids.add(row_id)
+        matched_ids.append(row_id)
+
+    for row_id in matched_ids:
+        queue.append(
+            {
+                "event": "delete",
+                "data": {"table_autogen_id": row_id},
+            }
+        )
+
+    return {
+        "status": "queued",
+        "event": "delete",
+        "mode": "full_delete" if full_delete and not filters else "conditions",
+        "source": source,
+        "filters": filters,
+        "matched_rows": len(matched_rows),
+        "queued_deletes": len(matched_ids),
+        "queue_size": len(queue),
+    }
+
+
 if __name__ == "__main__":
     import uvicorn
 

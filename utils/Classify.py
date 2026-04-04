@@ -227,6 +227,42 @@ class FieldClassifier:
         self.save()
         return result
 
+    def recalculate_classifications(self) -> Dict[str, str]:
+        """
+        Recalculate destination storage for all known fields from tracker state.
+        """
+        all_fields = set(self.classifications.keys())
+        all_fields.update(self.presence_tracker.present_count.keys())
+        all_fields.update(self.cardinality_tracker.total_seen.keys())
+        all_fields.update(self.length_tracker._n.keys())
+
+        recalculated: Dict[str, str] = {}
+        for field in all_fields:
+            total_seen = self.cardinality_tracker.total_seen.get(field, 0)
+
+            if self.stability_tracker.is_unstable(field, total_seen):
+                dest = "mongodb"
+            elif self.length_tracker.is_high_variance(field):
+                dest = "mongodb"
+            else:
+                ratio = self.presence_tracker.presence_ratio(field)
+                dest = "sql" if ratio >= 0.80 else "mongodb"
+
+            prev = self.classifications.get(field)
+            if prev is not None and prev != dest:
+                logger.info(
+                    "FieldClassifier: periodic reclassification '%s' %s -> %s",
+                    field,
+                    prev,
+                    dest,
+                )
+
+            self.classifications[field] = dest
+            recalculated[field] = dest
+
+        self.save()
+        return recalculated
+
     def get_classification(self, field: str) -> str:
         return self.classifications.get(field, "mongodb")
 

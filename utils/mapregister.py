@@ -113,6 +113,15 @@ class MapRegister:
                 meta.storage = new_storage
                 self._emit_storage_migration_placeholders(updateOrder, field, old_storage, new_storage)
 
+    def _recalculate_field_classifiers(self, updateOrder=None) -> None:
+        """
+        Periodically recompute classifier decisions and apply resulting storage updates.
+        """
+        if self.request_count % 10 != 0:
+            return
+        classifications = self.field_classifier.recalculate_classifications()
+        self._apply_classifier_storage_decisions(classifications, updateOrder)
+
     def ingest_into_schema(self, record: Dict[str, any]) -> None:
         """
         Optionally ingest a record into the schema manager for schema inference.
@@ -229,6 +238,8 @@ class MapRegister:
         # Feed any ALTER events from prior requests to the classifier for stability tracking
         if updateOrder is not None:
             self.field_classifier.ingest_alter_events(updateOrder)
+
+        self._recalculate_field_classifiers(updateOrder)
         
         # Collect resolved values for INSERT split by storage path.
         sql_columns = ["table_autogen_id"]
@@ -311,6 +322,7 @@ class MapRegister:
         request = self._normalize_request(request)
         self._emit_create_placeholders(updateOrder)
         self.request_count += 1
+        self._recalculate_field_classifiers(updateOrder)
 
         if not request:
             logger.warning("DeleteRequest received an empty request payload; skipping")
@@ -360,6 +372,8 @@ class MapRegister:
         # Feed any ALTER events from prior requests to the classifier for stability tracking
         if updateOrder is not None:
             self.field_classifier.ingest_alter_events(updateOrder)
+
+        self._recalculate_field_classifiers(updateOrder)
 
         resolved_criteria = {}
         for key, value in criteria.items():

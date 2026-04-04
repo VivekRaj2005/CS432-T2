@@ -30,6 +30,13 @@ const FIELD_TYPES: FieldType[] = [
 	"list<boolean>",
 ];
 
+function nextId(prefix: string): string {
+	if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+		return `${prefix}-${crypto.randomUUID()}`;
+	}
+	return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
 function createField(id: string): FieldInput {
 	return {
 		id,
@@ -96,7 +103,7 @@ export default function CreatePage() {
 	}
 
 	function addField() {
-		setFields((prev) => [...prev, createField(`field-${Date.now()}`)]);
+		setFields((prev) => [...prev, createField(nextId("field"))]);
 	}
 
 	function removeField(id: string) {
