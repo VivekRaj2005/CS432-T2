@@ -53,12 +53,18 @@ class MapRegister:
     def _emit_storage_migration_placeholders(self, updateOrder, column_name, old_storage, new_storage):
         if updateOrder is None or old_storage == new_storage:
             return
+        column_meta = self.map.get(column_name)
+        column_data_type = "UNK"
+        if isinstance(column_meta, Metadata):
+            column_data_type = self._metadata_type_name(column_meta)
+
         updateOrder.append({
             "type": "ALTER",
             "table_name": self.table_name,
             "column_name": column_name,
             "old_storage": old_storage,
             "new_storage": new_storage,
+            "new_type": column_data_type,
             "Executer": new_storage
         })
         # Placeholder transfer command to copy historical values to the new storage path.
@@ -67,6 +73,7 @@ class MapRegister:
             "table_name": self.table_name,
             "columns": ["table_autogen_id", column_name],
             "values": ["<TRANSFER_ALL_IDS>", f"<COPY:{old_storage}->{new_storage}:{column_name}>"],
+            "column_data_type": column_data_type,
             "Executer": new_storage,
             "migration": True
         })

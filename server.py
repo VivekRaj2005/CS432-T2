@@ -158,6 +158,27 @@ def _as_number(value: Any) -> float:
     return float(value)
 
 
+def _to_bool_like(value: Any) -> bool | None:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, int):
+        if value in (0, 1):
+            return bool(value)
+        return None
+    if isinstance(value, bytes):
+        try:
+            value = value.decode("utf-8")
+        except Exception:
+            return None
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in {"true", "1", "yes"}:
+            return True
+        if normalized in {"false", "0", "no"}:
+            return False
+    return None
+
+
 def _eval_math_expression(value: Any) -> float:
     if isinstance(value, (int, float)) and not isinstance(value, bool):
         return float(value)
@@ -200,6 +221,11 @@ def _matches_filter(record: dict[str, Any], flt: dict[str, Any]) -> bool:
     op = str(flt.get("op", "eq"))
     expected = flt.get("value")
     actual = _field_value(record, flt["field"])
+
+    actual_bool = _to_bool_like(actual)
+    expected_bool = _to_bool_like(expected)
+    if actual_bool is not None and expected_bool is not None and op in {"eq", "ne", "neq", "not_equals"}:
+        return actual_bool == expected_bool if op == "eq" else actual_bool != expected_bool
 
     if op == "eq":
         return actual == expected

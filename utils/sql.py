@@ -248,6 +248,7 @@ class SQLUpdateOrderExecutor:
 		table_name_raw = command["table_name"]
 		table_name = _quote_identifier(table_name_raw)
 		column_name = command.get("migration_column")
+		column_data_type = command.get("column_data_type")
 		transfer_rows = command.get("transfer_rows") or []
 
 		if not column_name:
@@ -262,8 +263,9 @@ class SQLUpdateOrderExecutor:
 			f"({_quote_identifier('table_autogen_id')} BIGINT PRIMARY KEY)"
 		)
 		cursor.execute(create_query)
+		target_sql_type = _sql_type(column_data_type)
 		if not self._column_exists(cursor, table_name_raw, column_name):
-			cursor.execute(f"ALTER TABLE {table_name} ADD COLUMN {quoted_column} TEXT")
+			cursor.execute(f"ALTER TABLE {table_name} ADD COLUMN {quoted_column} {target_sql_type}")
 
 		if not transfer_rows:
 			logger.info(
