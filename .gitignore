@@ -3,5 +3,5 @@
 **/*.pyc
 *.log
 *.json
-**.pkl
+**.pkl.**
 .cache/**

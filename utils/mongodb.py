@@ -156,6 +156,12 @@ class MongoUpdateOrderExecutor:
 			return
 
 		document = dict(zip(columns, values))
+		raw_record = command.get("raw_record")
+		if isinstance(raw_record, dict):
+			for key, value in raw_record.items():
+				if key == "table_autogen_id":
+					continue
+				document.setdefault(key, value)
 		if "table_autogen_id" not in document:
 			logger.warning(f"NoSQL INSERT missing table_autogen_id; skipping: {command}")
 			return

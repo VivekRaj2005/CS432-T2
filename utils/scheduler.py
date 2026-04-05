@@ -221,6 +221,24 @@ async def process_sql_updates(sql_queue, sql_server, mongo_server, stop_event):
         logger.info(f"Processing SQL {cmd_type} on {table} (count: {sql_count})")
         try:
             await asyncio.to_thread(sql_server.execute_update_order, [command])
+
+            # Keep Mongo root collection in sync even when NoSQL INSERT dispatch is missing.
+            if (
+                cmd_type == "INSERT"
+                and not command.get("migration")
+            ):
+                await asyncio.to_thread(
+                    mongo_server.execute_update_order,
+                    [{
+                        "type": "INSERT",
+                        "table_name": table,
+                        "columns": command.get("columns", []),
+                        "values": command.get("values", []),
+                        "raw_record": command.get("raw_record"),
+                        "Executer": "NoSQL",
+                    }],
+                )
+
             if migration_column and migrated_ids:
                 await asyncio.to_thread(
                     mongo_server.remove_column_for_ids,

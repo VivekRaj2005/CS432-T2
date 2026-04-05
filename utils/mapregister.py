@@ -303,6 +303,9 @@ class MapRegister:
         fk_field = self._foreign_key_field_name(field_name)
         child_table = self._child_table_name(field_name)
 
+        if fk_field not in self.map or not isinstance(self.map[fk_field], Metadata):
+            self.map[fk_field] = Metadata(type_="int")
+
         classified = self.field_classifier.classify_record({fk_field: parent_id})
         classified_storage = classified.get(fk_field) or self.field_classifier.get_classification(fk_field)
         desired_storage = self._fk_storage_from_classifier(classified_storage, fallback="SQL")
@@ -416,6 +419,7 @@ class MapRegister:
                     "table_name": register.table_name,
                     "columns": columns,
                     "values": values,
+                    "raw_record": {"table_autogen_id": parent_id, **payload},
                     "Executer": "SQL"
                 })
             if nosql_updates:
@@ -426,6 +430,7 @@ class MapRegister:
                     "table_name": register.table_name,
                     "columns": columns,
                     "values": values,
+                    "raw_record": {"table_autogen_id": parent_id, **payload},
                     "Executer": "NoSQL"
                 })
 
@@ -629,7 +634,7 @@ class MapRegister:
             if self._is_sql_shallow_nested(value):
                 self._store_shallow_nested_insert(key, value, table_autogen_id, updateOrder)
                 fk_field, fk_storage = self._ensure_fk_reference(key, table_autogen_id, updateOrder)
-                fk_value = table_autogen_id
+                fk_value, fk_storage = self._resolve_field_value(fk_field, table_autogen_id, updateOrder)
                 if fk_storage == "NoSQL":
                     nosql_columns.append(fk_field)
                     nosql_values.append(fk_value)
@@ -662,6 +667,7 @@ class MapRegister:
                 "table_name": self.table_name,
                 "columns": sql_columns,
                 "values": sql_values,
+                "raw_record": {"table_autogen_id": table_autogen_id, **request},
                 "Executer": "SQL"
             })
             updateOrder.append({
@@ -669,6 +675,7 @@ class MapRegister:
                 "table_name": self.table_name,
                 "columns": nosql_columns,
                 "values": nosql_values,
+                "raw_record": {"table_autogen_id": table_autogen_id, **request},
                 "Executer": "NoSQL"
             })
         
@@ -767,7 +774,11 @@ class MapRegister:
                 if updated_nested:
                     parent_id = resolved_criteria.get("table_autogen_id")
                     fk_field, fk_storage = self._ensure_fk_reference(key, parent_id, updateOrder)
-                    fk_value = parent_id
+                    fk_value, fk_storage = self._resolve_field_value(
+                        fk_field,
+                        resolved_criteria.get("table_autogen_id"),
+                        updateOrder,
+                    )
                     if fk_storage == "NoSQL":
                         nosql_updates[fk_field] = fk_value
                     else:
