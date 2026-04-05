@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import asyncio
 import json
 from collections import deque
 from pathlib import Path
@@ -899,6 +900,46 @@ def delete_record(payload: dict[str, Any]) -> dict[str, Any]:
         "queued_deletes": len(matched_ids),
         "queue_size": len(queue),
     }
+
+ALLOWED_ACID_TESTS = {"at.py", "cons.py", "iso.py", "dur.py"}
+
+@app.post("/run-tests")
+async def run_pytest_suite(payload: dict[str, Any]) -> dict[str, Any]:
+    tests = payload.get("tests", [])
+    if not isinstance(tests, list) or not tests:
+        raise HTTPException(status_code=400, detail="Provide a list of tests to run.")
+    
+    # Filter only permitted test scripts to prevent arbitrary command execution
+    valid_tests = [t for t in tests if t in ALLOWED_ACID_TESTS]
+    if not valid_tests:
+        raise HTTPException(status_code=400, detail="No valid test files provided.")
+    
+    cmd = ["pytest"] + valid_tests
+    
+    try:
+        # Run Pytest in a non-blocking way using asyncio
+        process = await asyncio.create_subprocess_exec(
+            *cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
+        
+        stdout, stderr = await process.communicate()
+        
+        # Pytest exits with code 0 on success, >0 if tests fail or error
+        success = process.returncode == 0
+        
+        return {
+            "success": success,
+            "tests_run": valid_tests,
+            "return_code": process.returncode,
+            "output": stdout.decode("utf-8") if stdout else "",
+            "errorOutput": stderr.decode("utf-8") if stderr else "",
+            "message": "All tests passed!" if success else "Completed with test failures."
+        }
+        
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to execute Pytest: {exc}")
 
 
 if __name__ == "__main__":
