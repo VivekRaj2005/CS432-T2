@@ -12,6 +12,7 @@ type NavbarProps = {
 };
 
 const defaultActions: NavbarAction[] = [
+	{ label: "Dashboard", href: "/Dashboard" },
 	{ label: "Create", href: "/Create" },
     { label: "Get", href: "/Fetch" },
 	{ label: "Update", href: "/Update" },
