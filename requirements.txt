@@ -8,3 +8,4 @@ httpx
 tabulate
 mysql-connector-python
 pymongo
+pytest

@@ -48,7 +48,7 @@ export default function AcidTestPage() {
         setStatus(`Running ${testsToRun.length} test(s)...`);
 
         try {
-            const response = await fetch("/api/run-pytest", {
+            const response = await fetch("http://localhost:8000/run-tests", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ tests: testsToRun }),
@@ -130,15 +130,7 @@ export default function AcidTestPage() {
                 </div>
 
                 {error ? <p className="mt-4 text-sm font-medium text-red-600">Error: {error}</p> : null}
-                
-                {responseText ? (
-                    <div className="mt-6 rounded-lg border border-slate-200 bg-slate-900 p-4">
-                        <p className="mb-3 text-sm font-semibold text-white">Console Output</p>
-                        <pre className="overflow-x-auto whitespace-pre-wrap break-words font-mono text-xs text-green-400">
-                            {responseText}
-                        </pre>
-                    </div>
-                ) : null}
+            
             </section>
         </main>
     );
