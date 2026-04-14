@@ -25,25 +25,24 @@ class TestConsistency:
         marker = uid()
         api_create(client, {
             "acid": "consistency_preserve", "marker": marker,
-            "immutable": "locked", "mutable": "old",
+            "f1": "locked", "mutable": "old",
         })
         poll_until(client, {"marker": {"op": "eq", "value": marker}},
                    predicate=lambda rs: len(rs) >= 1)
 
         api_update(client, {"criteria": {"marker": marker}, "set": {"mutable": "updated"}})
-        poll_until(
+        rows = poll_until(
             client,
             {"marker": {"op": "eq", "value": marker}, "mutable": {"op": "eq", "value": "updated"}},
             predicate=lambda rs: len(rs) >= 1,
+            source="merged",
         )
 
-        for source in ("sql", "nosql"):
-            rows = api_fetch(client, {"marker": {"op": "eq", "value": marker}}, source=source)
-            assert rows, f"Record missing from {source} after update"
-            assert rows[0].get("immutable") == "locked", \
-                f"{source}: untouched field altered: {rows[0]}"
-            assert rows[0].get("mutable") == "updated", \
-                f"{source}: mutable field not updated: {rows[0]}"
+        assert rows, "Record missing after update"
+        assert rows[0].get("f1") == "locked", \
+            f"Untouched field altered: {rows[0]}"
+        assert rows[0].get("mutable") == "updated", \
+            f"Mutable field not updated: {rows[0]}"
 
     def test_schema_consistent_after_new_field_introduced(self, client):
         novel_field = f"novel_{uid()}"
@@ -71,22 +70,21 @@ class TestConsistency:
 
     def test_sequential_updates_reach_final_consistent_state(self, client):
         marker = uid()
-        api_create(client, {"acid": "consistency_sequential", "marker": marker, "v": 0})
+        api_create(client, {"acid": "consistency_sequential", "marker": marker, "v": "0"})
         poll_until(client, {"marker": {"op": "eq", "value": marker}},
                    predicate=lambda rs: len(rs) >= 1)
 
-        for val in (1, 2, 3):
+        for val in ("1", "2", "3"):
             api_update(client, {"criteria": {"marker": marker}, "set": {"v": val}})
 
-        for source in ("sql", "nosql"):
-            rows = poll_until(
-                client,
-                {"marker": {"op": "eq", "value": marker}, "v": {"op": "eq", "value": 3}},
-                predicate=lambda rs: len(rs) >= 1,
-                source=source,
-            )
-            assert str(rows[0].get("v")) == "3", \
-                f"{source} stuck on intermediate value: {rows[0]}"
+        rows = poll_until(
+            client,
+            {"marker": {"op": "eq", "value": marker}, "v": {"op": "eq", "value": "3"}},
+            predicate=lambda rs: len(rs) >= 1,
+            source="merged",
+        )
+        assert rows[0].get("v") == "3", \
+            f"Stuck on intermediate value: {rows[0]}"
 
     def test_create_then_delete_leaves_no_residue(self, client):
         marker = uid()

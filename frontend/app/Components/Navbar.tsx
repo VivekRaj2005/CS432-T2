@@ -18,6 +18,8 @@ const defaultActions: NavbarAction[] = [
 	{ label: "Delete", href: "/Delete" },
 	{ label: "View Schema", href: "/Schema" },
 	{ label: "Dump/Load", href: "/DumpLoad" },
+	{ label: "ACID Tests", href: "/Test" },
+
 ];
 
 export default function Navbar({

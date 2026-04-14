@@ -1,4 +1,3 @@
-
 import asyncio
 import re
 from collections import deque, defaultdict
@@ -13,29 +12,11 @@ class CrudOperationGenerator:
     """
     
     def __init__(self, schema_manager=None):
-        """
-        Initialize CRUD operation generator.
-        
-        Args:
-            schema_manager: Optional SchemaManager for schema-aware operations
-        """
         self.schema_manager = schema_manager
-        # Track seen PKs per table
         self._seen_pks = defaultdict(set)
         logger.info("CrudOperationGenerator initialized")
     
     def generate_operation(self, event: str, data: dict, global_key: Optional[str] = None) -> dict:
-        """
-        Generate a normalized operation from a CRUD event.
-        
-        Args:
-            event: Event type (add, update/change, delete/remove, get)
-            data: Event data payload
-            global_key: Optional global identifier field
-            
-        Returns:
-            Normalized operation dict
-        """
         event = event.lower().strip()
         logger.debug(f"Generating operation for event: {event}")
         
@@ -60,7 +41,6 @@ class CrudOperationGenerator:
             return {}
     
     def _gen_create(self, data: dict, global_key: Optional[str]) -> dict:
-        """Generate INSERT operation."""
         return {
             "type": "INSERT",
             "data": data,
@@ -69,8 +49,6 @@ class CrudOperationGenerator:
         }
     
     def _gen_update(self, data: dict, global_key: Optional[str]) -> dict:
-        """Generate UPDATE operation."""
-        # Try to infer criteria from identifier fields
         criteria = {}
         for key in data:
             if key.endswith("_id") or key in {"dept_name", "record_id"}:
@@ -85,7 +63,6 @@ class CrudOperationGenerator:
         }
     
     def _gen_delete(self, data: dict, global_key: Optional[str]) -> dict:
-        """Generate DELETE operation."""
         criteria = {}
         for key in data:
             if key.endswith("_id") or key in {"dept_name", "record_id"}:
@@ -99,13 +76,12 @@ class CrudOperationGenerator:
         }
     
     def _gen_select(self, data: dict, global_key: Optional[str]) -> dict:
-        """Generate SELECT operation."""
         criteria = {}
         for key in data:
             if key.endswith("_id") or key in {"dept_name", "record_id"}:
                 criteria[key] = data[key]
         
-        columns = data.get("COLUMNS", [])  # Hint for specific columns
+        columns = data.get("COLUMNS", [])
         
         return {
             "type": "SELECT",
@@ -133,26 +109,29 @@ async def process_records(q, map_register, update_order, stop_event):
         event = record["event"]
         logger.debug(f"Processing record {record_count} with event '{event}'")
         
-        if event == "add":
-            map_register.ResolveRequest(record["data"], update_order)
-            logger.info(f"Added record {record_count} to map_register")
-        elif event in {"update", "change"}:
-            update_handler = getattr(map_register, "UpdateRequest", None) or getattr(map_register, "ChangeRequest", None)
-            if callable(update_handler):
-                update_handler(record["data"], update_order)
-                logger.info(f"Updated record {record_count} via map_register")
+        try:
+            if event == "add":
+                map_register.ResolveRequest(record["data"], update_order)
+                logger.info(f"Added record {record_count} to map_register")
+            elif event in {"update", "change"}:
+                update_handler = getattr(map_register, "UpdateRequest", None) or getattr(map_register, "ChangeRequest", None)
+                if callable(update_handler):
+                    update_handler(record["data"], update_order)
+                    logger.info(f"Updated record {record_count} via map_register")
+                else:
+                    logger.warning(f"Update event received but no update handler is available: {record}")
+            elif event in {"delete", "remove"}:
+                delete_handler = getattr(map_register, "DeleteRequest", None) or getattr(map_register, "RemoveRequest", None)
+                if callable(delete_handler):
+                    delete_handler(record["data"], update_order)
+                    logger.info(f"Deleted record {record_count} via map_register")
+                else:
+                    logger.warning(f"Delete event received but no delete handler is available: {record}")
             else:
-                logger.warning(f"Update event received but no update handler is available: {record}")
-        elif event in {"delete", "remove"}:
-            delete_handler = getattr(map_register, "DeleteRequest", None) or getattr(map_register, "RemoveRequest", None)
-            if callable(delete_handler):
-                delete_handler(record["data"], update_order)
-                logger.info(f"Deleted record {record_count} via map_register")
-            else:
-                logger.warning(f"Delete event received but no delete handler is available: {record}")
-        else:
-            logger.warning(f"Skipping unsupported event type: {event}")
-    
+                logger.warning(f"Skipping unsupported event type: {event}")
+        except Exception as e:
+            logger.error(f"Error processing record {record_count} (event={event}): {e}", exc_info=True)
+
     logger.info(f"Record processing complete. Processed {record_count} records total")
 
 
@@ -170,14 +149,17 @@ async def dispatch_updates(update_order, sql_queue, nosql_queue, stop_event):
         executer = command.get("Executer")
         cmd_type = command.get("type")
         
-        if executer == "SQL":
-            sql_queue.append(command)
-            logger.debug(f"Dispatched {cmd_type} command to SQL queue (total: {dispatch_count})")
-        elif executer == "NoSQL":
-            nosql_queue.append(command)
-            logger.debug(f"Dispatched {cmd_type} command to NoSQL queue (total: {dispatch_count})")
-        else:
-            logger.warning(f"Skipping command with unknown Executer: {command}")
+        try:
+            if executer == "SQL":
+                sql_queue.append(command)
+                logger.debug(f"Dispatched {cmd_type} command to SQL queue (total: {dispatch_count})")
+            elif executer == "NoSQL":
+                nosql_queue.append(command)
+                logger.debug(f"Dispatched {cmd_type} command to NoSQL queue (total: {dispatch_count})")
+            else:
+                logger.warning(f"Skipping command with unknown Executer: {command}")
+        except Exception as e:
+            logger.error(f"Error dispatching command: {e}", exc_info=True)
     
     logger.info(f"Update dispatcher complete. Dispatched {dispatch_count} commands total")
 
@@ -194,33 +176,35 @@ async def process_sql_updates(sql_queue, sql_server, mongo_server, stop_event):
         command = sql_queue.popleft()
         migrated_ids = []
         migration_column = None
-        if command.get("migration") and command.get("type") == "INSERT":
-            values = command.get("values") or []
-            if len(values) > 1 and isinstance(values[1], str):
-                match = re.match(r"<COPY:(SQL|NoSQL)->(SQL|NoSQL):([^>]+)>", values[1])
-                if match and match.group(1) == "NoSQL" and match.group(2) == "SQL":
-                    migration_column = match.group(3)
 
-            if migration_column:
-                source_rows = await asyncio.to_thread(
-                    mongo_server.fetch_column_snapshot,
-                    command.get("table_name"),
-                    migration_column,
-                )
-                migrated_ids = [row.get("table_autogen_id") for row in source_rows if row.get("table_autogen_id") is not None]
-                command = {
-                    **command,
-                    "migration_column": migration_column,
-                    "transfer_rows": source_rows,
-                }
-
-        sql_count += 1
-        cmd_type = command.get("type")
-        table = command.get("table_name")
-        
-        logger.info(f"Processing SQL {cmd_type} on {table} (count: {sql_count})")
         try:
+            if command.get("migration") and command.get("type") == "INSERT":
+                values = command.get("values") or []
+                if len(values) > 1 and isinstance(values[1], str):
+                    match = re.match(r"<COPY:(SQL|NoSQL)->(SQL|NoSQL):([^>]+)>", values[1])
+                    if match and match.group(1) == "NoSQL" and match.group(2) == "SQL":
+                        migration_column = match.group(3)
+
+                if migration_column:
+                    source_rows = await asyncio.to_thread(
+                        mongo_server.fetch_column_snapshot,
+                        command.get("table_name"),
+                        migration_column,
+                    )
+                    migrated_ids = [row.get("table_autogen_id") for row in source_rows if row.get("table_autogen_id") is not None]
+                    command = {
+                        **command,
+                        "migration_column": migration_column,
+                        "transfer_rows": source_rows,
+                    }
+
+            sql_count += 1
+            cmd_type = command.get("type")
+            table = command.get("table_name")
+            
+            logger.info(f"Processing SQL {cmd_type} on {table} (count: {sql_count})")
             await asyncio.to_thread(sql_server.execute_update_order, [command])
+
             if migration_column and migrated_ids:
                 await asyncio.to_thread(
                     mongo_server.remove_column_for_ids,
@@ -229,13 +213,12 @@ async def process_sql_updates(sql_queue, sql_server, mongo_server, stop_event):
                     migrated_ids,
                 )
             logger.debug(f"SQL {cmd_type} executed successfully")
+
         except Exception as e:
-            logger.error(f"Error executing SQL {cmd_type} command: {e}", exc_info=True)
-            stop_event.set()
-            break
+            logger.error(f"Error executing SQL command: {e}", exc_info=True)
+            # Do NOT set stop_event or break — keep the worker alive
     
     logger.info(f"SQL update processor complete. Processed {sql_count} SQL commands total")
-    
 
 
 async def process_nosql_updates(nosql_queue, sql_server, mongo_server, stop_event):
@@ -250,45 +233,43 @@ async def process_nosql_updates(nosql_queue, sql_server, mongo_server, stop_even
         command = nosql_queue.popleft()
         migrated_ids = []
         migration_column = None
-        if command.get("migration") and command.get("type") == "INSERT":
-            values = command.get("values") or []
-            if len(values) > 1 and isinstance(values[1], str):
-                match = re.match(r"<COPY:(SQL|NoSQL)->(SQL|NoSQL):([^>]+)>", values[1])
-                if match and match.group(1) == "SQL" and match.group(2) == "NoSQL":
-                    migration_column = match.group(3)
 
-            if migration_column:
-                source_rows = await asyncio.to_thread(
-                    sql_server.fetch_column_snapshot,
-                    command.get("table_name"),
-                    migration_column,
-                )
-                filtered_rows = []
-                for row in source_rows:
-                    value = row.get(migration_column)
-                    if value is None:
-                        continue
-                    filtered_rows.append(row)
-
-                migrated_ids = [row.get("table_autogen_id") for row in filtered_rows if row.get("table_autogen_id") is not None]
-                command = {
-                    **command,
-                    "migration_column": migration_column,
-                    "transfer_rows": filtered_rows,
-                }
-
-        nosql_count += 1
-        cmd_type = command.get("type")
-        table = command.get("table_name")
-        
-        logger.info(f"Processing NoSQL {cmd_type} on {table} (count: {nosql_count})")
         try:
+            if command.get("migration") and command.get("type") == "INSERT":
+                values = command.get("values") or []
+                if len(values) > 1 and isinstance(values[1], str):
+                    match = re.match(r"<COPY:(SQL|NoSQL)->(SQL|NoSQL):([^>]+)>", values[1])
+                    if match and match.group(1) == "SQL" and match.group(2) == "NoSQL":
+                        migration_column = match.group(3)
+
+                if migration_column:
+                    source_rows = await asyncio.to_thread(
+                        sql_server.fetch_column_snapshot,
+                        command.get("table_name"),
+                        migration_column,
+                    )
+                    filtered_rows = [
+                        row for row in source_rows
+                        if row.get(migration_column) is not None
+                    ]
+                    migrated_ids = [row.get("table_autogen_id") for row in filtered_rows if row.get("table_autogen_id") is not None]
+                    command = {
+                        **command,
+                        "migration_column": migration_column,
+                        "transfer_rows": filtered_rows,
+                    }
+
+            nosql_count += 1
+            cmd_type = command.get("type")
+            table = command.get("table_name")
+            
+            logger.info(f"Processing NoSQL {cmd_type} on {table} (count: {nosql_count})")
             await asyncio.to_thread(mongo_server.execute_update_order, [command])
             logger.debug(f"NoSQL {cmd_type} executed successfully")
+
         except Exception as e:
-            logger.error(f"Error executing NoSQL {cmd_type} command: {e}", exc_info=True)
-            stop_event.set()
-            break
+            logger.error(f"Error executing NoSQL command: {e}", exc_info=True)
+            # Do NOT set stop_event or break — keep the worker alive
     
     logger.info(f"NoSQL update processor complete. Processed {nosql_count} NoSQL commands total")
 
