@@ -13,6 +13,10 @@ from utils.scheduler import (
     build_update_queues,
 )
 from utils.settings import HOST, PORT, USERNAME, PASSWORD, DB, CONNECTION
+from utils.session_manager import SessionManager
+from utils.query_executor import QueryExecutor
+from utils.logical_schema_transformer import LogicalSchemaTransformer
+from utils.query_history_store import QueryHistoryStore
 import os
 import uvicorn
 from server import app
@@ -30,6 +34,19 @@ async def main():
     app.state.update_order = updateOrder
     app.state.sql_queue = sql_queue
     app.state.nosql_queue = nosql_queue
+    
+    # Initialize dashboard & query tracking managers
+    session_manager = SessionManager(inactive_timeout_minutes=30, cleanup_interval_minutes=5)
+    query_executor = QueryExecutor()
+    schema_transformer = LogicalSchemaTransformer()
+    query_history_store = QueryHistoryStore(history_dir="logs", filename="query_execution_history.jsonl")
+    
+    app.state.session_manager = session_manager
+    app.state.query_executor = query_executor
+    app.state.schema_transformer = schema_transformer
+    app.state.query_history_store = query_history_store
+    
+    logger.info("Dashboard managers initialized successfully")
     api_server = uvicorn.Server(
         uvicorn.Config(
             app,

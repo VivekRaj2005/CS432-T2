@@ -952,6 +952,243 @@ async def run_pytest_suite(payload: dict[str, Any]) -> dict[str, Any]:
         raise HTTPException(status_code=500, detail=f"Failed to execute Pytest: {exc}")
 
 
+# ========== DASHBOARD ENDPOINTS ==========
+
+@app.post("/sessions/start")
+async def start_session() -> dict[str, Any]:
+    """Start a new user session for dashboard tracking."""
+    session_manager = getattr(app.state, "session_manager", None)
+    if session_manager is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Session manager is not attached. Start API through main.py.",
+        )
+    
+    session_id = session_manager.create_session()
+    return {
+        "session_id": session_id,
+        "created_at": datetime.now().isoformat(),
+    }
+
+
+@app.get("/sessions")
+async def get_active_sessions() -> dict[str, Any]:
+    """Get all active user sessions."""
+    session_manager = getattr(app.state, "session_manager", None)
+    if session_manager is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Session manager is not attached. Start API through main.py.",
+        )
+    
+    active_sessions = session_manager.get_active_sessions()
+    stats = session_manager.get_session_statistics()
+    
+    return {
+        "sessions": active_sessions,
+        "statistics": stats,
+    }
+
+
+@app.get("/sessions/{session_id}")
+async def get_session_details(session_id: str) -> dict[str, Any]:
+    """Get details of a specific session."""
+    session_manager = getattr(app.state, "session_manager", None)
+    if session_manager is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Session manager is not attached. Start API through main.py.",
+        )
+    
+    session = session_manager.get_session_details(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    return session
+
+
+@app.get("/entities")
+async def get_logical_entities() -> dict[str, Any]:
+    """Get all logical entities from the schema."""
+    transformer = getattr(app.state, "schema_transformer", None)
+    register = _get_register()
+    
+    if transformer is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Schema transformer is not attached. Start API through main.py.",
+        )
+    
+    # Update logical schema from current register
+    transformer.clear_cache()
+    transformer.transform_map_register(register)
+    
+    entities = transformer.get_all_entities()
+    return {
+        "entities": entities,
+        "total_entities": len(entities),
+    }
+
+
+@app.get("/entities/{entity_name}")
+async def get_entity_schema(entity_name: str) -> dict[str, Any]:
+    """Get schema details for a specific logical entity."""
+    transformer = getattr(app.state, "schema_transformer", None)
+    if transformer is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Schema transformer is not attached. Start API through main.py.",
+        )
+    
+    schema = transformer.get_entity_schema(entity_name)
+    if not schema:
+        raise HTTPException(status_code=404, detail=f"Entity '{entity_name}' not found")
+    
+    return schema
+
+
+@app.get("/entities/{entity_name}/instances")
+async def get_entity_instances(
+    entity_name: str,
+    session_id: Optional[str] = Query(None),
+    limit: int = Query(100, ge=1, le=1000),
+    offset: int = Query(0, ge=0),
+) -> dict[str, Any]:
+    """Get instances (records) of a logical entity."""
+    session_manager = getattr(app.state, "session_manager", None)
+    transformer = getattr(app.state, "schema_transformer", None)
+    query_executor = getattr(app.state, "query_executor", None)
+    
+    if not all([session_manager, transformer, query_executor]):
+        raise HTTPException(
+            status_code=503,
+            detail="Required managers not attached. Start API through main.py.",
+        )
+    
+    # Verify entity exists
+    entity_schema = transformer.get_entity_schema(entity_name)
+    if not entity_schema:
+        raise HTTPException(status_code=404, detail=f"Entity '{entity_name}' not found")
+    
+    # Get internal table name
+    entity = transformer.get_logical_entity(entity_name)
+    if not entity:
+        raise HTTPException(status_code=404, detail=f"Entity '{entity_name}' not found")
+    
+    table_name = entity.table_name
+    
+    # Record session activity if provided
+    if session_id:
+        session_manager.record_entity_access(session_id, entity_name)
+        session_manager.record_query(session_id)
+    
+    # Start query execution tracking
+    query_id = query_executor.start_query_execution(
+        session_id=session_id,
+        entity_name=entity_name,
+        operation_type="SELECT",
+        filters={"limit": limit, "offset": offset},
+        source="HYBRID",
+    )
+    
+    try:
+        # Fetch records from backend
+        sql_server = getattr(app.state, "sql_server", None)
+        mongo_server = getattr(app.state, "mongo_server", None)
+        
+        criteria = {}
+        sql_rows = sql_server.fetch_records(table_name=table_name, criteria=criteria, limit=limit + offset) if sql_server else []
+        nosql_rows = mongo_server.fetch_records(table_name=table_name, criteria=criteria, limit=limit + offset) if mongo_server else []
+        
+        merged = _merge_by_id(sql_rows, nosql_rows)
+        
+        # Apply offset/limit on merged results
+        instances = merged[offset : offset + limit]
+        
+        # Update record count in schema
+        total_count = len(merged)
+        transformer.update_record_count(entity_name, total_count)
+        
+        # Complete query execution
+        query_executor.complete_query_execution(
+            query_id=query_id,
+            result_count=len(instances),
+            rows_affected=0,
+            status="SUCCESS",
+        )
+        
+        return {
+            "entity_name": entity_name,
+            "instances": instances,
+            "total_count": total_count,
+            "returned_count": len(instances),
+            "offset": offset,
+            "limit": limit,
+            "query_id": query_id,
+        }
+    except Exception as e:
+        query_executor.complete_query_execution(
+            query_id=query_id,
+            status="ERROR",
+            error=str(e),
+        )
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/query-history")
+async def get_query_history(
+    session_id: Optional[str] = Query(None),
+    entity_name: Optional[str] = Query(None),
+    limit: int = Query(100, ge=1, le=1000),
+) -> dict[str, Any]:
+    """Get query execution history with optional filtering."""
+    history_store = getattr(app.state, "query_history_store", None)
+    query_executor = getattr(app.state, "query_executor", None)
+    
+    if not all([history_store, query_executor]):
+        raise HTTPException(
+            status_code=503,
+            detail="Query tracking not attached. Start API through main.py.",
+        )
+    
+    # Get from persistent store and in-memory executor
+    if session_id:
+        history = history_store.get_session_history(session_id, limit=limit)
+    elif entity_name:
+        history = history_store.get_entity_history(entity_name, limit=limit)
+    else:
+        history = history_store.get_history(limit=limit)
+    
+    stats = history_store.get_statistics()
+    
+    return {
+        "history": history,
+        "total_count": len(history),
+        "statistics": stats,
+    }
+
+
+@app.get("/query-history/stats")
+async def get_query_statistics() -> dict[str, Any]:
+    """Get aggregated query execution statistics."""
+    history_store = getattr(app.state, "query_history_store", None)
+    query_executor = getattr(app.state, "query_executor", None)
+    
+    if not all([history_store, query_executor]):
+        raise HTTPException(
+            status_code=503,
+            detail="Query tracking not attached. Start API through main.py.",
+        )
+    
+    history_stats = history_store.get_statistics()
+    executor_stats = query_executor.get_statistics()
+    
+    return {
+        "persistent_store_stats": history_stats,
+        "in_memory_stats": executor_stats,
+    }
+
+
 if __name__ == "__main__":
     import uvicorn
 
