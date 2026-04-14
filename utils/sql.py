@@ -36,7 +36,7 @@ class SQLUpdateOrderExecutor:
 		schema_manager=None,
 	):
 		logger.info(f"Initializing SQL executor: {user}@{host}:{port}/{database}")
-		self._connection = mysql.connector.connect(
+		self._connect_config = dict(
 			host=host,
 			port=port,
 			user=user,
@@ -44,26 +44,33 @@ class SQLUpdateOrderExecutor:
 			database=database,
 			autocommit=False,
 		)
+		self._connection = mysql.connector.connect(**self._connect_config)
 		logger.info("Connected to MySQL successfully")
-		# Optional schema manager for schema-aware operations and PK tracking
 		self.schema_manager = schema_manager
-		# Track seen PKs per table: table_name -> set of PK values
 		self._seen_pks: Dict[str, Set[Any]] = defaultdict(set)
 
+	def _ensure_connection(self) -> None:
+		try:
+			self._connection.ping(reconnect=True, attempts=3, delay=2)
+		except Exception:
+			logger.warning("MySQL ping failed, reconnecting...")
+			try:
+				self._connection.close()
+			except Exception:
+				pass
+			self._connection = mysql.connector.connect(**self._connect_config)
+			logger.info("MySQL reconnected successfully")
+
 	def mark_pk_inserted(self, table_name: str, pk_value: Any) -> None:
-		"""Track that a primary key has been inserted."""
 		self._seen_pks[table_name].add(pk_value)
 
 	def is_first_insert(self, table_name: str, pk_value: Any) -> bool:
-		"""Check if this PK value has been seen before."""
 		return pk_value not in self._seen_pks[table_name]
 
 	def unmark_pk(self, table_name: str, pk_value: Any) -> None:
-		"""Remove a PK from tracking (e.g., after DELETE)."""
 		self._seen_pks[table_name].discard(pk_value)
 
 	def get_schema(self) -> Optional[Dict]:
-		"""Get the current schema from schema manager."""
 		if self.schema_manager:
 			return self.schema_manager.get_schema()
 		return None
@@ -79,6 +86,7 @@ class SQLUpdateOrderExecutor:
 		fields: Optional[List[str]] = None,
 		limit: int = 100,
 	) -> List[Dict[str, Any]]:
+		self._ensure_connection()
 		criteria = criteria or {}
 		limit = max(1, min(limit, 1000))
 
@@ -108,13 +116,13 @@ class SQLUpdateOrderExecutor:
 			rows = cursor.fetchall() or []
 			return [dict(row) for row in rows]
 		except Error as exc:
-			# Missing table/column during early runs should not crash fetch endpoint.
 			logger.warning("SQL fetch failed for %s: %s", table_name, exc)
 			return []
 		finally:
 			cursor.close()
 
 	def execute_update_order(self, update_order: Iterable[Dict[str, Any]]) -> None:
+		self._ensure_connection()
 		cursor = self._connection.cursor()
 		command_count = 0
 		try:
@@ -127,7 +135,7 @@ class SQLUpdateOrderExecutor:
 				table_name = command.get("table_name", "unknown")
 				command_count += 1
 				logger.debug(f"Executing SQL {command_type} on {table_name} (cmd #{command_count})")
-				
+
 				if command_type == "CREATE":
 					self._execute_create(cursor, command)
 				elif command_type == "ALTER":
@@ -143,9 +151,9 @@ class SQLUpdateOrderExecutor:
 			logger.info(f"SQL update order complete. Executed {command_count} commands")
 		except Exception as e:
 			self._connection.rollback()
-			logger.error("Error executing update order, rolled back transaction", exc_info=True)  
+			logger.error("Error executing update order, rolled back transaction", exc_info=True)
 			logger.error(f"Failed command: {command}")
-			logger.error(f"Error details: {e}")  
+			logger.error(f"Error details: {e}")
 			raise
 		finally:
 			cursor.close()
@@ -178,7 +186,6 @@ class SQLUpdateOrderExecutor:
 		new_type = command.get("new_type")
 		column_exists = self._column_exists(cursor, table_name_raw, column_name)
 
-		# Storage migration ALTERs may omit type info; default to TEXT when unknown.
 		target_sql_type = _sql_type(new_type)
 
 		if not column_exists:
@@ -186,11 +193,9 @@ class SQLUpdateOrderExecutor:
 		elif old_type is not None or new_type is not None:
 			query = f"ALTER TABLE {table_name} MODIFY COLUMN {quoted_column} {target_sql_type}"
 		else:
-			# Storage-only migration command and column already exists in SQL.
 			return
 
 		logger.info(f"Executing ALTER TABLE: {query}")
-
 		cursor.execute(query)
 
 	def _column_exists(self, cursor, table_name: str, column_name: str) -> bool:
@@ -221,7 +226,6 @@ class SQLUpdateOrderExecutor:
 			else:
 				normalized_values.append(value)
 
-		# Track primary key if available
 		if "table_autogen_id" in columns:
 			pk_idx = columns.index("table_autogen_id")
 			pk_value = values[pk_idx]
@@ -239,7 +243,6 @@ class SQLUpdateOrderExecutor:
 		if update_clause:
 			query += f" ON DUPLICATE KEY UPDATE {update_clause}"
 		else:
-			# Make single-key inserts idempotent across restarts.
 			query += " ON DUPLICATE KEY UPDATE table_autogen_id = VALUES(table_autogen_id)"
 		logger.info(f"Executing INSERT: {query} with values {normalized_values}")
 		cursor.execute(query, normalized_values)
@@ -257,7 +260,6 @@ class SQLUpdateOrderExecutor:
 
 		quoted_column = _quote_identifier(column_name)
 
-		# Ensure destination table and migrated column exist before upserting history.
 		create_query = (
 			f"CREATE TABLE IF NOT EXISTS {table_name} "
 			f"({_quote_identifier('table_autogen_id')} BIGINT PRIMARY KEY)"
@@ -361,4 +363,3 @@ class SQLUpdateOrderExecutor:
 		query = f"UPDATE {table_name} SET {', '.join(set_parts)} WHERE {' AND '.join(where_parts)}"
 		logger.info(f"Executing UPDATE: {query} with values {values}")
 		cursor.execute(query, values)
-
