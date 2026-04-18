@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 from datetime import datetime
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
 from utils.resolve import Metadata
@@ -950,6 +950,367 @@ async def run_pytest_suite(payload: dict[str, Any]) -> dict[str, Any]:
         
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Failed to execute Pytest: {exc}")
+
+
+# ========== DASHBOARD ENDPOINTS ==========
+
+@app.post("/sessions/start")
+async def start_session() -> dict[str, Any]:
+    """Start a new user session for dashboard tracking."""
+    session_manager = getattr(app.state, "session_manager", None)
+    if session_manager is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Session manager is not attached. Start API through main.py.",
+        )
+    
+    session_id = session_manager.create_session()
+    return {
+        "session_id": session_id,
+        "created_at": datetime.now().isoformat(),
+    }
+
+
+@app.get("/sessions")
+async def get_active_sessions() -> dict[str, Any]:
+    """Get all active user sessions."""
+    session_manager = getattr(app.state, "session_manager", None)
+    if session_manager is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Session manager is not attached. Start API through main.py.",
+        )
+    
+    active_sessions = session_manager.get_active_sessions()
+    stats = session_manager.get_session_statistics()
+    
+    return {
+        "sessions": active_sessions,
+        "statistics": stats,
+    }
+
+
+@app.get("/sessions/{session_id}")
+async def get_session_details(session_id: str) -> dict[str, Any]:
+    """Get details of a specific session."""
+    session_manager = getattr(app.state, "session_manager", None)
+    if session_manager is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Session manager is not attached. Start API through main.py.",
+        )
+    
+    session = session_manager.get_session_details(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    return session
+
+
+@app.get("/entities")
+async def get_logical_entities() -> dict[str, Any]:
+    """Get all logical entities from the schema."""
+    transformer = getattr(app.state, "schema_transformer", None)
+    register = _get_register()
+    
+    if transformer is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Schema transformer is not attached. Start API through main.py.",
+        )
+    
+    # Update logical schema from current register
+    transformer.clear_cache()
+    transformer.transform_map_register(register)
+    
+    entities = transformer.get_all_entities()
+    return {
+        "entities": entities,
+        "total_entities": len(entities),
+    }
+
+
+@app.get("/entities/{entity_name}")
+async def get_entity_schema(entity_name: str) -> dict[str, Any]:
+    """Get schema details for a specific logical entity."""
+    transformer = getattr(app.state, "schema_transformer", None)
+    if transformer is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Schema transformer is not attached. Start API through main.py.",
+        )
+    
+    schema = transformer.get_entity_schema(entity_name)
+    if not schema:
+        raise HTTPException(status_code=404, detail=f"Entity '{entity_name}' not found")
+    
+    return schema
+
+
+@app.get("/entities/{entity_name}/instances")
+async def get_entity_instances(
+    entity_name: str,
+    session_id: Optional[str] = Query(None),
+    limit: int = Query(100, ge=1, le=1000),
+    offset: int = Query(0, ge=0),
+) -> dict[str, Any]:
+    """Get instances (records) of a logical entity."""
+    session_manager = getattr(app.state, "session_manager", None)
+    transformer = getattr(app.state, "schema_transformer", None)
+    query_executor = getattr(app.state, "query_executor", None)
+    
+    if not all([session_manager, transformer, query_executor]):
+        raise HTTPException(
+            status_code=503,
+            detail="Required managers not attached. Start API through main.py.",
+        )
+    
+    # Verify entity exists
+    entity_schema = transformer.get_entity_schema(entity_name)
+    if not entity_schema:
+        raise HTTPException(status_code=404, detail=f"Entity '{entity_name}' not found")
+    
+    # Get internal table name
+    entity = transformer.get_logical_entity(entity_name)
+    if not entity:
+        raise HTTPException(status_code=404, detail=f"Entity '{entity_name}' not found")
+    
+    table_name = entity.table_name
+    
+    # Record session activity if provided
+    if session_id:
+        session_manager.record_entity_access(session_id, entity_name)
+        session_manager.record_query(session_id)
+    
+    # Start query execution tracking
+    query_id = query_executor.start_query_execution(
+        session_id=session_id,
+        entity_name=entity_name,
+        operation_type="SELECT",
+        filters={"limit": limit, "offset": offset},
+        source="HYBRID",
+    )
+    
+    try:
+        # Fetch records from backend
+        sql_server = getattr(app.state, "sql_server", None)
+        mongo_server = getattr(app.state, "mongo_server", None)
+        
+        criteria = {}
+        sql_rows = sql_server.fetch_records(table_name=table_name, criteria=criteria, limit=limit + offset) if sql_server else []
+        nosql_rows = mongo_server.fetch_records(table_name=table_name, criteria=criteria, limit=limit + offset) if mongo_server else []
+        
+        merged = _merge_by_id(sql_rows, nosql_rows)
+        
+        # Apply offset/limit on merged results
+        instances = merged[offset : offset + limit]
+        
+        # Update record count in schema
+        total_count = len(merged)
+        transformer.update_record_count(entity_name, total_count)
+        
+        # Complete query execution
+        query_executor.complete_query_execution(
+            query_id=query_id,
+            result_count=len(instances),
+            rows_affected=0,
+            status="SUCCESS",
+        )
+        
+        return {
+            "entity_name": entity_name,
+            "instances": instances,
+            "total_count": total_count,
+            "returned_count": len(instances),
+            "offset": offset,
+            "limit": limit,
+            "query_id": query_id,
+        }
+    except Exception as e:
+        query_executor.complete_query_execution(
+            query_id=query_id,
+            status="ERROR",
+            error=str(e),
+        )
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/query-history")
+async def get_query_history(
+    session_id: Optional[str] = Query(None),
+    entity_name: Optional[str] = Query(None),
+    limit: int = Query(100, ge=1, le=1000),
+) -> dict[str, Any]:
+    """Get query execution history with optional filtering."""
+    history_store = getattr(app.state, "query_history_store", None)
+    query_executor = getattr(app.state, "query_executor", None)
+    
+    if not all([history_store, query_executor]):
+        raise HTTPException(
+            status_code=503,
+            detail="Query tracking not attached. Start API through main.py.",
+        )
+    
+    # Get from persistent store and in-memory executor
+    if session_id:
+        history = history_store.get_session_history(session_id, limit=limit)
+    elif entity_name:
+        history = history_store.get_entity_history(entity_name, limit=limit)
+    else:
+        history = history_store.get_history(limit=limit)
+    
+    stats = history_store.get_statistics()
+    
+    return {
+        "history": history,
+        "total_count": len(history),
+        "statistics": stats,
+    }
+
+
+@app.get("/query-history/stats")
+async def get_query_statistics() -> dict[str, Any]:
+    """Get aggregated query execution statistics."""
+    history_store = getattr(app.state, "query_history_store", None)
+    query_executor = getattr(app.state, "query_executor", None)
+    
+    if not all([history_store, query_executor]):
+        raise HTTPException(
+            status_code=503,
+            detail="Query tracking not attached. Start API through main.py.",
+        )
+    
+    history_stats = history_store.get_statistics()
+    executor_stats = query_executor.get_statistics()
+    
+    return {
+        "persistent_store_stats": history_stats,
+        "in_memory_stats": executor_stats,
+    }
+
+
+# ========== INGEST QUEUE TRACKING ENDPOINTS ==========
+
+@app.websocket("/ws/ingest-history")
+async def websocket_ingest_history(websocket: WebSocket) -> None:
+    """
+    WebSocket endpoint for real-time ingest queue command status updates.
+    Clients receive live updates as commands are queued, processed, and completed.
+    """
+    history_store = getattr(app.state, "query_history_store", None)
+    if not history_store:
+        await websocket.close(code=4503, reason="Query tracking not initialized")
+        return
+    
+    await websocket.accept()
+    history_store.register_ingest_subscriber(websocket)
+    
+    try:
+        # Send initial ingest history to client
+        initial_history = history_store.get_ingest_history(limit=100)
+        stats = history_store.get_ingest_status_summary()
+        
+        await websocket.send_json({
+            "type": "ingest_initial",
+            "timestamp": datetime.utcnow().isoformat() + "Z",
+            "history": initial_history,
+            "stats": stats,
+        })
+        
+        # Keep connection alive and listen for client messages
+        while True:
+            try:
+                data = await websocket.receive_text()
+                message = json.loads(data)
+                
+                # Handle client requests
+                if message.get("action") == "get_history":
+                    limit = message.get("limit", 100)
+                    offset = message.get("offset", 0)
+                    history = history_store.get_ingest_history(limit=limit, offset=offset)
+                    await websocket.send_json({
+                        "type": "ingest_history",
+                        "timestamp": datetime.utcnow().isoformat() + "Z",
+                        "history": history,
+                        "total_count": len(history_store.ingest_records),
+                    })
+                elif message.get("action") == "get_stats":
+                    stats = history_store.get_ingest_status_summary()
+                    await websocket.send_json({
+                        "type": "ingest_stats",
+                        "timestamp": datetime.utcnow().isoformat() + "Z",
+                        "stats": stats,
+                    })
+            except json.JSONDecodeError:
+                await websocket.send_json({
+                    "type": "error",
+                    "message": "Invalid JSON received"
+                })
+            except Exception as e:
+                pass
+    
+    except WebSocketDisconnect:
+        history_store.unregister_ingest_subscriber(websocket)
+    except Exception as e:
+        history_store.unregister_ingest_subscriber(websocket)
+
+
+@app.get("/ingest-history")
+async def get_ingest_history(
+    limit: int = Query(100, ge=1, le=1000),
+    offset: int = Query(0, ge=0),
+) -> dict[str, Any]:
+    """
+    Get ingest queue command history showing what commands were queued and their execution status.
+    
+    Returns commands with status: QUEUED, PROCESSING, SUCCESS, or ERROR.
+    """
+    history_store = getattr(app.state, "query_history_store", None)
+    if not history_store:
+        raise HTTPException(
+            status_code=503,
+            detail="Query tracking not attached. Start API through main.py.",
+        )
+    
+    ingest_history = history_store.get_ingest_history(limit=limit, offset=offset)
+    
+    return {
+        "history": ingest_history,
+        "total_count": len(history_store.ingest_records),
+        "returned_count": len(ingest_history),
+        "offset": offset,
+        "limit": limit,
+        "timestamp": datetime.utcnow().isoformat() + "Z",
+    }
+
+
+@app.get("/ingest-history/stats")
+async def get_ingest_statistics() -> dict[str, Any]:
+    """
+    Get aggregated statistics for ingest queue commands.
+    Shows successful/failed/queued/processing breakdown and execution metrics.
+    
+    This is what the user sees when querying /query-history/stats for ingest queue data.
+    """
+    history_store = getattr(app.state, "query_history_store", None)
+    if not history_store:
+        raise HTTPException(
+            status_code=503,
+            detail="Query tracking not attached. Start API through main.py.",
+        )
+    
+    stats = history_store.get_ingest_status_summary()
+    
+    return {
+        "total_commands": stats["total_commands"],
+        "queued": stats["queued"],
+        "processing": stats["processing"],
+        "successful": stats["successful"],
+        "failed": stats["failed"],
+        "avg_execution_ms": stats["avg_execution_ms"],
+        "event_type_breakdown": stats["event_type_breakdown"],
+        "timestamp": datetime.utcnow().isoformat() + "Z",
+    }
 
 
 if __name__ == "__main__":

@@ -2,6 +2,7 @@ import asyncio
 import re
 from collections import deque, defaultdict
 from typing import Optional
+from datetime import datetime
 from utils.log import scheduler_logger as logger
 
 
@@ -92,7 +93,7 @@ class CrudOperationGenerator:
         }
 
 
-async def process_records(q, map_register, update_order, stop_event):
+async def process_records(q, map_register, update_order, stop_event, history_store=None):
     logger.info("Starting record processing...")
     record_count = 0
     while not stop_event.is_set() or q:
@@ -107,7 +108,15 @@ async def process_records(q, map_register, update_order, stop_event):
             continue
 
         event = record["event"]
-        logger.debug(f"Processing record {record_count} with event '{event}'")
+        
+        # Log ingest command to history store
+        command_id = ""
+        start_time = datetime.utcnow() if history_store else None
+        if history_store:
+            command_id = history_store.log_ingest_command(event, record.get("data", {}))
+            history_store.update_ingest_status(command_id, "PROCESSING")
+        
+        logger.debug(f"Processing record {record_count} with event '{event}' (command_id: {command_id})")
         
         try:
             if event == "add":
@@ -129,8 +138,30 @@ async def process_records(q, map_register, update_order, stop_event):
                     logger.warning(f"Delete event received but no delete handler is available: {record}")
             else:
                 logger.warning(f"Skipping unsupported event type: {event}")
+            
+            # Mark as SUCCESS
+            if history_store and command_id:
+                execution_ms = int((datetime.utcnow() - start_time).total_seconds() * 1000)
+                history_store.update_ingest_status(command_id, "SUCCESS", execution_ms=execution_ms)
+                # Broadcast update to websocket clients
+                await history_store.broadcast_ingest_update({
+                    "command_id": command_id,
+                    "status": "SUCCESS",
+                    "execution_ms": execution_ms
+                })
         except Exception as e:
             logger.error(f"Error processing record {record_count} (event={event}): {e}", exc_info=True)
+            # Mark as ERROR
+            if history_store and command_id:
+                execution_ms = int((datetime.utcnow() - start_time).total_seconds() * 1000)
+                history_store.update_ingest_status(command_id, "ERROR", execution_ms=execution_ms, error=str(e))
+                # Broadcast update to websocket clients
+                await history_store.broadcast_ingest_update({
+                    "command_id": command_id,
+                    "status": "ERROR",
+                    "execution_ms": execution_ms,
+                    "error": str(e)
+                })
 
     logger.info(f"Record processing complete. Processed {record_count} records total")
 
