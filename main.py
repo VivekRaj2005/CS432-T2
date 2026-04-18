@@ -47,6 +47,8 @@ async def main():
     app.state.query_history_store = query_history_store
     
     logger.info("Dashboard managers initialized successfully")
+    
+    # Create uvicorn server
     api_server = uvicorn.Server(
         uvicorn.Config(
             app,
@@ -56,20 +58,40 @@ async def main():
             log_level="info",
         )
     )
-    sqlServer = SQLUpdateOrderExecutor(
-        host=HOST,
-        port=int(PORT),
-        user=USERNAME,
-        password=PASSWORD,
-        database=DB
-    )
-    mongoServer = MongoUpdateOrderExecutor(connection_string=CONNECTION, database=DB)
+    
+    # Initialize database connections with error handling
+    try:
+        logger.info("Connecting to SQL database...")
+        sqlServer = SQLUpdateOrderExecutor(
+            host=HOST,
+            port=int(PORT),
+            user=USERNAME,
+            password=PASSWORD,
+            database=DB
+        )
+        logger.info("SQL database connected successfully")
+    except Exception as e:
+        logger.error(f"Failed to connect to SQL database: {e}", exc_info=True)
+        logger.error(f"Settings: host={HOST}, port={PORT}, user={USERNAME}, database={DB}")
+        raise Exception(f"SQL Database Connection Failed: {e}")
+    
+    try:
+        logger.info("Connecting to MongoDB...")
+        mongoServer = MongoUpdateOrderExecutor(connection_string=CONNECTION, database=DB)
+        logger.info("MongoDB connected successfully")
+    except Exception as e:
+        logger.error(f"Failed to connect to MongoDB: {e}", exc_info=True)
+        logger.error(f"Settings: connection_string={CONNECTION}, database={DB}")
+        if hasattr(sqlServer, 'close'):
+            sqlServer.close()
+        raise Exception(f"MongoDB Connection Failed: {e}")
+    
     app.state.sql_server = sqlServer
     app.state.mongo_server = mongoServer
 
     api_task = asyncio.create_task(api_server.serve())
     record_task = asyncio.create_task(
-        process_records(q, mapRegister, updateOrder, stop_event)
+        process_records(q, mapRegister, updateOrder, stop_event, query_history_store)
     )
     dispatch_task = asyncio.create_task(
         dispatch_updates(updateOrder, sql_queue, nosql_queue, stop_event)
@@ -103,5 +125,15 @@ if __name__ == "__main__":
         asyncio.run(main())
     except KeyboardInterrupt:
         logger.info("Stopping stream...")
+    except Exception as e:
+        logger.error(f"Fatal error during startup: {type(e).__name__}: {e}", exc_info=True)
+        print(f"\n❌ FATAL ERROR: {type(e).__name__}: {e}")
+        print("Please check the logs for more details.")
+        print("\nCommon issues:")
+        print("- MySQL not running on localhost:3306")
+        print("- MongoDB not running on localhost:27017")
+        print("- Wrong database credentials in utils/settings.py")
+        import sys
+        sys.exit(1)
     finally:
         quit()

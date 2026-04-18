@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 from datetime import datetime
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
 from utils.resolve import Metadata
@@ -1186,6 +1186,130 @@ async def get_query_statistics() -> dict[str, Any]:
     return {
         "persistent_store_stats": history_stats,
         "in_memory_stats": executor_stats,
+    }
+
+
+# ========== INGEST QUEUE TRACKING ENDPOINTS ==========
+
+@app.websocket("/ws/ingest-history")
+async def websocket_ingest_history(websocket: WebSocket) -> None:
+    """
+    WebSocket endpoint for real-time ingest queue command status updates.
+    Clients receive live updates as commands are queued, processed, and completed.
+    """
+    history_store = getattr(app.state, "query_history_store", None)
+    if not history_store:
+        await websocket.close(code=4503, reason="Query tracking not initialized")
+        return
+    
+    await websocket.accept()
+    history_store.register_ingest_subscriber(websocket)
+    
+    try:
+        # Send initial ingest history to client
+        initial_history = history_store.get_ingest_history(limit=100)
+        stats = history_store.get_ingest_status_summary()
+        
+        await websocket.send_json({
+            "type": "ingest_initial",
+            "timestamp": datetime.utcnow().isoformat() + "Z",
+            "history": initial_history,
+            "stats": stats,
+        })
+        
+        # Keep connection alive and listen for client messages
+        while True:
+            try:
+                data = await websocket.receive_text()
+                message = json.loads(data)
+                
+                # Handle client requests
+                if message.get("action") == "get_history":
+                    limit = message.get("limit", 100)
+                    offset = message.get("offset", 0)
+                    history = history_store.get_ingest_history(limit=limit, offset=offset)
+                    await websocket.send_json({
+                        "type": "ingest_history",
+                        "timestamp": datetime.utcnow().isoformat() + "Z",
+                        "history": history,
+                        "total_count": len(history_store.ingest_records),
+                    })
+                elif message.get("action") == "get_stats":
+                    stats = history_store.get_ingest_status_summary()
+                    await websocket.send_json({
+                        "type": "ingest_stats",
+                        "timestamp": datetime.utcnow().isoformat() + "Z",
+                        "stats": stats,
+                    })
+            except json.JSONDecodeError:
+                await websocket.send_json({
+                    "type": "error",
+                    "message": "Invalid JSON received"
+                })
+            except Exception as e:
+                pass
+    
+    except WebSocketDisconnect:
+        history_store.unregister_ingest_subscriber(websocket)
+    except Exception as e:
+        history_store.unregister_ingest_subscriber(websocket)
+
+
+@app.get("/ingest-history")
+async def get_ingest_history(
+    limit: int = Query(100, ge=1, le=1000),
+    offset: int = Query(0, ge=0),
+) -> dict[str, Any]:
+    """
+    Get ingest queue command history showing what commands were queued and their execution status.
+    
+    Returns commands with status: QUEUED, PROCESSING, SUCCESS, or ERROR.
+    """
+    history_store = getattr(app.state, "query_history_store", None)
+    if not history_store:
+        raise HTTPException(
+            status_code=503,
+            detail="Query tracking not attached. Start API through main.py.",
+        )
+    
+    ingest_history = history_store.get_ingest_history(limit=limit, offset=offset)
+    
+    return {
+        "history": ingest_history,
+        "total_count": len(history_store.ingest_records),
+        "returned_count": len(ingest_history),
+        "offset": offset,
+        "limit": limit,
+        "timestamp": datetime.utcnow().isoformat() + "Z",
+    }
+
+
+@app.get("/ingest-history/stats")
+async def get_ingest_statistics() -> dict[str, Any]:
+    """
+    Get aggregated statistics for ingest queue commands.
+    Shows successful/failed/queued/processing breakdown and execution metrics.
+    
+    This is what the user sees when querying /query-history/stats for ingest queue data.
+    """
+    history_store = getattr(app.state, "query_history_store", None)
+    if not history_store:
+        raise HTTPException(
+            status_code=503,
+            detail="Query tracking not attached. Start API through main.py.",
+        )
+    
+    stats = history_store.get_ingest_status_summary()
+    
+    return {
+        "total_commands": stats["total_commands"],
+        "queued": stats["queued"],
+        "processing": stats["processing"],
+        "successful": stats["successful"],
+        "failed": stats["failed"],
+        "avg_execution_ms": stats["avg_execution_ms"],
+        "event_type_breakdown": stats["event_type_breakdown"],
+        "timestamp": datetime.utcnow().isoformat() + "Z",
     }
 
 

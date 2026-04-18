@@ -22,9 +22,14 @@ export default function EntityExplorer({
 
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-6">
-      <h2 className="mb-4 text-lg font-semibold text-slate-900">
-        Logical Entities
-      </h2>
+      <div className="mb-3">
+        <h2 className="text-lg font-semibold text-slate-900">
+          Logical Entities
+        </h2>
+        <p className="mt-1 text-xs text-slate-600">
+          Different tables from SQL and NoSQL databases unified into logical entities
+        </p>
+      </div>
 
       <div className="space-y-2">
         {entities.length === 0 ? (

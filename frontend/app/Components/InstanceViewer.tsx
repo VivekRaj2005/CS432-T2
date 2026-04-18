@@ -46,9 +46,10 @@ export default function InstanceViewer({
   if (!entityName) {
     return (
       <div className="rounded-lg border border-slate-200 bg-white p-6">
-        <h2 className="mb-4 text-lg font-semibold text-slate-900">Instances</h2>
+        <h2 className="mb-2 text-lg font-semibold text-slate-900">Entity Details</h2>
+        <p className="mb-4 text-xs text-slate-600">Schema properties and instance data</p>
         <div className="flex h-32 items-center justify-center text-center text-sm text-slate-500">
-          Select an entity to view instances
+          Select an entity from the list to view schema properties and instances
         </div>
       </div>
     );
@@ -58,27 +59,63 @@ export default function InstanceViewer({
   const currentPage = Math.floor(offset / limit) + 1;
 
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-6">
-      <div className="mb-4 flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-semibold text-slate-900">Instances</h2>
-          <p className="text-xs text-slate-600">
-            {entityName} • {totalCount} total records
-          </p>
+    <div className="space-y-4">
+      {/* Entity Schema Section */}
+      <div className="rounded-lg border border-slate-200 bg-white p-6">
+        <div className="mb-3 flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-900">Entity Schema</h2>
+            <p className="text-xs text-slate-600">{entityName}</p>
+          </div>
         </div>
-        <select
-          value={limit}
-          onChange={(e) => {
-            setLimit(parseInt(e.target.value));
-            setOffset(0);
-          }}
-          className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs"
-        >
-          <option value="10">10 per page</option>
-          <option value="25">25 per page</option>
-          <option value="50">50 per page</option>
-        </select>
+
+        {entity && entity.fields && entity.fields.length > 0 ? (
+          <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+            {entity.fields.map((field) => (
+              <div key={field.name} className="rounded-md bg-slate-50 p-3">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="font-mono text-sm font-semibold text-slate-900">
+                    {field.name}
+                  </span>
+                  <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">
+                    {field.logical_type}
+                  </span>
+                </div>
+                <div className="flex gap-2 text-xs text-slate-600">
+                  {field.is_key && <span className="inline-block bg-blue-50 px-1.5 rounded text-blue-600">🔑 Key</span>}
+                  {field.is_required && <span className="inline-block bg-red-50 px-1.5 rounded text-red-600">Required</span>}
+                  {field.is_auto_generated && <span className="inline-block bg-green-50 px-1.5 rounded text-green-600">Auto</span>}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-sm text-slate-500">No fields available</div>
+        )}
       </div>
+
+      {/* Instance Data Section */}
+      <div className="rounded-lg border border-slate-200 bg-white p-6">
+        <div className="mb-4 flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-900">Instance Data</h2>
+            <p className="text-xs text-slate-600">
+              {totalCount} total records
+            </p>
+          </div>
+          <select
+            value={limit}
+            onChange={(e) => {
+              setLimit(parseInt(e.target.value));
+              setOffset(0);
+            }}
+            className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs"
+          >
+            <option value="10">10 per page</option>
+            <option value="25">25 per page</option>
+            <option value="50">50 per page</option>
+          </select>
+        </div>
 
       {instances.length === 0 ? (
         <div className="flex h-32 items-center justify-center text-center text-sm text-slate-500">
@@ -157,6 +194,7 @@ export default function InstanceViewer({
           </div>
         </>
       )}
+      </div>
     </div>
   );
 }

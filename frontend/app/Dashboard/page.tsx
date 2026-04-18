@@ -4,23 +4,31 @@ import { useState } from "react";
 import EntityExplorer from "../Components/EntityExplorer";
 import InstanceViewer from "../Components/InstanceViewer";
 import Navbar from "../Components/Navbar";
-import QueryHistory from "../Components/QueryHistory";
+import IngestHistory from "../Components/IngestHistory";
 import SessionPanel from "../Components/SessionPanel";
 import { useDashboardData } from "../hooks/useDashboardData";
+import { useIngestHistory } from "../hooks/useIngestHistory";
 
 export default function Dashboard() {
   const {
     sessions,
     entities,
-    queryHistory,
     sessionId,
     loading,
     error,
     fetchSessions,
     fetchEntities,
     fetchEntityInstances,
-    fetchQueryHistory,
   } = useDashboardData();
+
+  const {
+    ingestHistory,
+    ingestStats,
+    loading: ingestLoading,
+    isConnected,
+    fetchIngestHistory,
+    fetchIngestStats,
+  } = useIngestHistory();
 
   const [selectedEntity, setSelectedEntity] = useState<string | null>(null);
   const selectedEntityObj = entities.find((e) => e.entity_name === selectedEntity);
@@ -29,8 +37,9 @@ export default function Dashboard() {
     await fetchSessions();
   };
 
-  const handleRefreshHistory = async () => {
-    await fetchQueryHistory();
+  const handleRefreshIngestHistory = async () => {
+    await fetchIngestHistory();
+    await fetchIngestStats();
   };
 
   const handleSelectEntity = (entityName: string) => {
@@ -41,7 +50,8 @@ export default function Dashboard() {
   const handleLoadDashboard = async () => {
     await fetchEntities();
     await fetchSessions();
-    await fetchQueryHistory();
+    await fetchIngestHistory();
+    await fetchIngestStats();
   };
 
   return (
@@ -108,18 +118,22 @@ export default function Dashboard() {
               onFetchInstances={fetchEntityInstances}
               loading={loading}
             />
-
-            <QueryHistory
-              history={queryHistory}
-              onRefresh={handleRefreshHistory}
-              loading={loading}
-            />
           </div>
         </section>
 
+        <section className="rounded-lg border border-slate-200 bg-white">
+          <IngestHistory
+            history={ingestHistory}
+            stats={ingestStats}
+            onRefresh={handleRefreshIngestHistory}
+            loading={ingestLoading}
+            isConnected={isConnected}
+          />
+        </section>
+
         <section className="rounded-lg border border-slate-200 bg-white p-6">
-          <h2 className="mb-4 text-lg font-semibold text-slate-900">Information</h2>
-          <div className="grid gap-4 md:grid-cols-3">
+          <h2 className="mb-4 text-lg font-semibold text-slate-900">System Statistics</h2>
+          <div className="grid gap-4 md:grid-cols-5">
             <div className="rounded-md bg-slate-50 p-4">
               <p className="text-xs font-semibold text-slate-600 uppercase">
                 Total Entities
@@ -136,12 +150,28 @@ export default function Dashboard() {
                 {sessions.length}
               </p>
             </div>
-            <div className="rounded-md bg-slate-50 p-4">
+            <div className="rounded-md bg-emerald-50 p-4">
+              <p className="text-xs font-semibold text-emerald-600 uppercase">
+                Ingest Success
+              </p>
+              <p className="mt-1 text-2xl font-bold text-emerald-700">
+                {ingestStats?.successful || 0}
+              </p>
+            </div>
+            <div className="rounded-md bg-red-50 p-4">
+              <p className="text-xs font-semibold text-red-600 uppercase">
+                Ingest Failed
+              </p>
+              <p className="mt-1 text-2xl font-bold text-red-700">
+                {ingestStats?.failed || 0}
+              </p>
+            </div>
+            <div className="rounded-md bg-slate-100 p-4">
               <p className="text-xs font-semibold text-slate-600 uppercase">
-                Queries Tracked
+                Avg Ingest Time
               </p>
               <p className="mt-1 text-2xl font-bold text-slate-900">
-                {queryHistory.length}
+                {ingestStats?.avg_execution_ms.toFixed(0)}ms
               </p>
             </div>
           </div>
