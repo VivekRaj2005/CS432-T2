@@ -1,0 +1,439 @@
+[INFO] 2026-04-18 15:56:07,301 : SessionManager initialized (timeout=30min)
+[INFO] 2026-04-18 15:56:07,302 : QueryExecutor initialized
+[INFO] 2026-04-18 15:56:07,302 : LogicalSchemaTransformer initialized
+[INFO] 2026-04-18 15:56:07,302 : Loaded 7 ingest records from cache
+[INFO] 2026-04-18 15:56:07,302 : QueryHistoryStore initialized: logs/query_execution_history.jsonl
+[INFO] 2026-04-18 15:56:07,302 : QueryHistoryStore ingest tracking: 7 records
+[INFO] 2026-04-18 15:56:07,302 : Dashboard managers initialized successfully
+[INFO] 2026-04-18 15:56:07,302 : Connecting to SQL database...
+[ERROR] 2026-04-18 15:56:07,809 : Failed to connect to SQL database: 1045 (28000): Access denied for user 'adapter'@'localhost' (using password: YES)
+Traceback (most recent call last):
+  File "/Users/pranavthakkar/Documents/GitHub/CS432-T2/venv/lib/python3.11/site-packages/mysql/connector/connection_cext.py", line 354, in _open_connection
+    self._cmysql.connect(**cnx_kwargs)
+_mysql_connector.MySQLInterfaceError: Access denied for user 'adapter'@'localhost' (using password: YES)
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/pranavthakkar/Documents/GitHub/CS432-T2/main.py", line 66, in main
+    sqlServer = SQLUpdateOrderExecutor(
+                ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/pranavthakkar/Documents/GitHub/CS432-T2/utils/sql.py", line 47, in __init__
+    self._connection = mysql.connector.connect(**self._connect_config)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/pranavthakkar/Documents/GitHub/CS432-T2/venv/lib/python3.11/site-packages/mysql/connector/pooling.py", line 322, in connect
+    return CMySQLConnection(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/pranavthakkar/Documents/GitHub/CS432-T2/venv/lib/python3.11/site-packages/mysql/connector/connection_cext.py", line 142, in __init__
+    self.connect(**kwargs)
+  File "/Users/pranavthakkar/Documents/GitHub/CS432-T2/venv/lib/python3.11/site-packages/mysql/connector/abstracts.py", line 1604, in connect
+    self._open_connection()
+  File "/Users/pranavthakkar/Documents/GitHub/CS432-T2/venv/lib/python3.11/site-packages/mysql/connector/connection_cext.py", line 360, in _open_connection
+    raise get_mysql_exception(
+mysql.connector.errors.ProgrammingError: 1045 (28000): Access denied for user 'adapter'@'localhost' (using password: YES)
+[ERROR] 2026-04-18 15:56:07,812 : Settings: host=127.0.0.1, port=3306, user=adapter, database=adapter
+[ERROR] 2026-04-18 15:56:07,813 : Fatal error during startup: Exception: SQL Database Connection Failed: 1045 (28000): Access denied for user 'adapter'@'localhost' (using password: YES)
+Traceback (most recent call last):
+  File "/Users/pranavthakkar/Documents/GitHub/CS432-T2/venv/lib/python3.11/site-packages/mysql/connector/connection_cext.py", line 354, in _open_connection
+    self._cmysql.connect(**cnx_kwargs)
+_mysql_connector.MySQLInterfaceError: Access denied for user 'adapter'@'localhost' (using password: YES)
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/pranavthakkar/Documents/GitHub/CS432-T2/main.py", line 66, in main
+    sqlServer = SQLUpdateOrderExecutor(
+                ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/pranavthakkar/Documents/GitHub/CS432-T2/utils/sql.py", line 47, in __init__
+    self._connection = mysql.connector.connect(**self._connect_config)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/pranavthakkar/Documents/GitHub/CS432-T2/venv/lib/python3.11/site-packages/mysql/connector/pooling.py", line 322, in connect
+    return CMySQLConnection(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/pranavthakkar/Documents/GitHub/CS432-T2/venv/lib/python3.11/site-packages/mysql/connector/connection_cext.py", line 142, in __init__
+    self.connect(**kwargs)
+  File "/Users/pranavthakkar/Documents/GitHub/CS432-T2/venv/lib/python3.11/site-packages/mysql/connector/abstracts.py", line 1604, in connect
+    self._open_connection()
+  File "/Users/pranavthakkar/Documents/GitHub/CS432-T2/venv/lib/python3.11/site-packages/mysql/connector/connection_cext.py", line 360, in _open_connection
+    raise get_mysql_exception(
+mysql.connector.errors.ProgrammingError: 1045 (28000): Access denied for user 'adapter'@'localhost' (using password: YES)
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/pranavthakkar/Documents/GitHub/CS432-T2/main.py", line 127, in <module>
+    asyncio.run(main())
+  File "/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/asyncio/runners.py", line 190, in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/asyncio/base_events.py", line 654, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "/Users/pranavthakkar/Documents/GitHub/CS432-T2/main.py", line 77, in main
+    raise Exception(f"SQL Database Connection Failed: {e}")
+Exception: SQL Database Connection Failed: 1045 (28000): Access denied for user 'adapter'@'localhost' (using password: YES)
+[INFO] 2026-04-18 16:09:14,851 : SessionManager initialized (timeout=30min)
+[INFO] 2026-04-18 16:09:14,852 : QueryExecutor initialized
+[INFO] 2026-04-18 16:09:14,852 : LogicalSchemaTransformer initialized
+[INFO] 2026-04-18 16:09:14,852 : Loaded 7 ingest records from cache
+[INFO] 2026-04-18 16:09:14,852 : QueryHistoryStore initialized: logs/query_execution_history.jsonl
+[INFO] 2026-04-18 16:09:14,852 : QueryHistoryStore ingest tracking: 7 records
+[INFO] 2026-04-18 16:09:14,852 : Dashboard managers initialized successfully
+[INFO] 2026-04-18 16:09:14,852 : Connecting to SQL database...
+[ERROR] 2026-04-18 16:09:14,928 : Failed to connect to SQL database: 1045 (28000): Access denied for user 'root'@'localhost' (using password: YES)
+Traceback (most recent call last):
+  File "/Users/pranavthakkar/Documents/GitHub/CS432-T2/venv/lib/python3.11/site-packages/mysql/connector/connection_cext.py", line 354, in _open_connection
+    self._cmysql.connect(**cnx_kwargs)
+_mysql_connector.MySQLInterfaceError: Access denied for user 'root'@'localhost' (using password: YES)
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/pranavthakkar/Documents/GitHub/CS432-T2/main.py", line 66, in main
+    sqlServer = SQLUpdateOrderExecutor(
+                ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/pranavthakkar/Documents/GitHub/CS432-T2/utils/sql.py", line 47, in __init__
+    self._connection = mysql.connector.connect(**self._connect_config)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/pranavthakkar/Documents/GitHub/CS432-T2/venv/lib/python3.11/site-packages/mysql/connector/pooling.py", line 322, in connect
+    return CMySQLConnection(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/pranavthakkar/Documents/GitHub/CS432-T2/venv/lib/python3.11/site-packages/mysql/connector/connection_cext.py", line 142, in __init__
+    self.connect(**kwargs)
+  File "/Users/pranavthakkar/Documents/GitHub/CS432-T2/venv/lib/python3.11/site-packages/mysql/connector/abstracts.py", line 1604, in connect
+    self._open_connection()
+  File "/Users/pranavthakkar/Documents/GitHub/CS432-T2/venv/lib/python3.11/site-packages/mysql/connector/connection_cext.py", line 360, in _open_connection
+    raise get_mysql_exception(
+mysql.connector.errors.ProgrammingError: 1045 (28000): Access denied for user 'root'@'localhost' (using password: YES)
+[ERROR] 2026-04-18 16:09:14,931 : Settings: host=127.0.0.1, port=3306, user=root, database=adapter
+[ERROR] 2026-04-18 16:09:14,931 : Fatal error during startup: Exception: SQL Database Connection Failed: 1045 (28000): Access denied for user 'root'@'localhost' (using password: YES)
+Traceback (most recent call last):
+  File "/Users/pranavthakkar/Documents/GitHub/CS432-T2/venv/lib/python3.11/site-packages/mysql/connector/connection_cext.py", line 354, in _open_connection
+    self._cmysql.connect(**cnx_kwargs)
+_mysql_connector.MySQLInterfaceError: Access denied for user 'root'@'localhost' (using password: YES)
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/pranavthakkar/Documents/GitHub/CS432-T2/main.py", line 66, in main
+    sqlServer = SQLUpdateOrderExecutor(
+                ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/pranavthakkar/Documents/GitHub/CS432-T2/utils/sql.py", line 47, in __init__
+    self._connection = mysql.connector.connect(**self._connect_config)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/pranavthakkar/Documents/GitHub/CS432-T2/venv/lib/python3.11/site-packages/mysql/connector/pooling.py", line 322, in connect
+    return CMySQLConnection(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/pranavthakkar/Documents/GitHub/CS432-T2/venv/lib/python3.11/site-packages/mysql/connector/connection_cext.py", line 142, in __init__
+    self.connect(**kwargs)
+  File "/Users/pranavthakkar/Documents/GitHub/CS432-T2/venv/lib/python3.11/site-packages/mysql/connector/abstracts.py", line 1604, in connect
+    self._open_connection()
+  File "/Users/pranavthakkar/Documents/GitHub/CS432-T2/venv/lib/python3.11/site-packages/mysql/connector/connection_cext.py", line 360, in _open_connection
+    raise get_mysql_exception(
+mysql.connector.errors.ProgrammingError: 1045 (28000): Access denied for user 'root'@'localhost' (using password: YES)
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/pranavthakkar/Documents/GitHub/CS432-T2/main.py", line 127, in <module>
+    asyncio.run(main())
+  File "/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/asyncio/runners.py", line 190, in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/asyncio/base_events.py", line 654, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "/Users/pranavthakkar/Documents/GitHub/CS432-T2/main.py", line 77, in main
+    raise Exception(f"SQL Database Connection Failed: {e}")
+Exception: SQL Database Connection Failed: 1045 (28000): Access denied for user 'root'@'localhost' (using password: YES)
+[INFO] 2026-04-18 16:10:11,062 : SessionManager initialized (timeout=30min)
+[INFO] 2026-04-18 16:10:11,063 : QueryExecutor initialized
+[INFO] 2026-04-18 16:10:11,063 : LogicalSchemaTransformer initialized
+[INFO] 2026-04-18 16:10:11,063 : Loaded 7 ingest records from cache
+[INFO] 2026-04-18 16:10:11,063 : QueryHistoryStore initialized: logs/query_execution_history.jsonl
+[INFO] 2026-04-18 16:10:11,063 : QueryHistoryStore ingest tracking: 7 records
+[INFO] 2026-04-18 16:10:11,063 : Dashboard managers initialized successfully
+[INFO] 2026-04-18 16:10:11,064 : Connecting to SQL database...
+[ERROR] 2026-04-18 16:10:11,121 : Failed to connect to SQL database: 1045 (28000): Access denied for user 'root'@'localhost' (using password: YES)
+Traceback (most recent call last):
+  File "/Users/pranavthakkar/Documents/GitHub/CS432-T2/venv/lib/python3.11/site-packages/mysql/connector/connection_cext.py", line 354, in _open_connection
+    self._cmysql.connect(**cnx_kwargs)
+_mysql_connector.MySQLInterfaceError: Access denied for user 'root'@'localhost' (using password: YES)
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/pranavthakkar/Documents/GitHub/CS432-T2/main.py", line 66, in main
+    sqlServer = SQLUpdateOrderExecutor(
+                ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/pranavthakkar/Documents/GitHub/CS432-T2/utils/sql.py", line 47, in __init__
+    self._connection = mysql.connector.connect(**self._connect_config)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/pranavthakkar/Documents/GitHub/CS432-T2/venv/lib/python3.11/site-packages/mysql/connector/pooling.py", line 322, in connect
+    return CMySQLConnection(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/pranavthakkar/Documents/GitHub/CS432-T2/venv/lib/python3.11/site-packages/mysql/connector/connection_cext.py", line 142, in __init__
+    self.connect(**kwargs)
+  File "/Users/pranavthakkar/Documents/GitHub/CS432-T2/venv/lib/python3.11/site-packages/mysql/connector/abstracts.py", line 1604, in connect
+    self._open_connection()
+  File "/Users/pranavthakkar/Documents/GitHub/CS432-T2/venv/lib/python3.11/site-packages/mysql/connector/connection_cext.py", line 360, in _open_connection
+    raise get_mysql_exception(
+mysql.connector.errors.ProgrammingError: 1045 (28000): Access denied for user 'root'@'localhost' (using password: YES)
+[ERROR] 2026-04-18 16:10:11,125 : Settings: host=127.0.0.1, port=3306, user=root, database=adapter
+[ERROR] 2026-04-18 16:10:11,125 : Fatal error during startup: Exception: SQL Database Connection Failed: 1045 (28000): Access denied for user 'root'@'localhost' (using password: YES)
+Traceback (most recent call last):
+  File "/Users/pranavthakkar/Documents/GitHub/CS432-T2/venv/lib/python3.11/site-packages/mysql/connector/connection_cext.py", line 354, in _open_connection
+    self._cmysql.connect(**cnx_kwargs)
+_mysql_connector.MySQLInterfaceError: Access denied for user 'root'@'localhost' (using password: YES)
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/Users/pranavthakkar/Documents/GitHub/CS432-T2/main.py", line 66, in main
+    sqlServer = SQLUpdateOrderExecutor(
+                ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/pranavthakkar/Documents/GitHub/CS432-T2/utils/sql.py", line 47, in __init__
+    self._connection = mysql.connector.connect(**self._connect_config)
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/pranavthakkar/Documents/GitHub/CS432-T2/venv/lib/python3.11/site-packages/mysql/connector/pooling.py", line 322, in connect
+    return CMySQLConnection(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/pranavthakkar/Documents/GitHub/CS432-T2/venv/lib/python3.11/site-packages/mysql/connector/connection_cext.py", line 142, in __init__
+    self.connect(**kwargs)
+  File "/Users/pranavthakkar/Documents/GitHub/CS432-T2/venv/lib/python3.11/site-packages/mysql/connector/abstracts.py", line 1604, in connect
+    self._open_connection()
+  File "/Users/pranavthakkar/Documents/GitHub/CS432-T2/venv/lib/python3.11/site-packages/mysql/connector/connection_cext.py", line 360, in _open_connection
+    raise get_mysql_exception(
+mysql.connector.errors.ProgrammingError: 1045 (28000): Access denied for user 'root'@'localhost' (using password: YES)
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/pranavthakkar/Documents/GitHub/CS432-T2/main.py", line 127, in <module>
+    asyncio.run(main())
+  File "/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/asyncio/runners.py", line 190, in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Library/Frameworks/Python.framework/Versions/3.11/lib/python3.11/asyncio/base_events.py", line 654, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "/Users/pranavthakkar/Documents/GitHub/CS432-T2/main.py", line 77, in main
+    raise Exception(f"SQL Database Connection Failed: {e}")
+Exception: SQL Database Connection Failed: 1045 (28000): Access denied for user 'root'@'localhost' (using password: YES)
+[INFO] 2026-04-18 16:44:21,140 : SessionManager initialized (timeout=30min)
+[INFO] 2026-04-18 16:44:21,141 : QueryExecutor initialized
+[INFO] 2026-04-18 16:44:21,141 : LogicalSchemaTransformer initialized
+[INFO] 2026-04-18 16:44:21,161 : Loaded 7 ingest records from cache
+[INFO] 2026-04-18 16:44:21,161 : QueryHistoryStore initialized: logs\query_execution_history.jsonl
+[INFO] 2026-04-18 16:44:21,161 : QueryHistoryStore ingest tracking: 7 records
+[INFO] 2026-04-18 16:44:21,161 : Dashboard managers initialized successfully
+[INFO] 2026-04-18 16:44:21,162 : Connecting to SQL database...
+[ERROR] 2026-04-18 16:44:21,596 : Failed to connect to SQL database: 1049 (42000): Unknown database 'zipppy'
+Traceback (most recent call last):
+  File "C:\Users\nupoo\Downloads\zip_it_up\venv\Lib\site-packages\mysql\connector\connection_cext.py", line 354, in _open_connection
+    self._cmysql.connect(**cnx_kwargs)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^
+_mysql_connector.MySQLInterfaceError: Unknown database 'zipppy'
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\nupoo\Downloads\zip_it_up\main.py", line 66, in main
+    sqlServer = SQLUpdateOrderExecutor(
+        host=HOST,
+    ...<3 lines>...
+        database=DB
+    )
+  File "C:\Users\nupoo\Downloads\zip_it_up\utils\sql.py", line 47, in __init__
+    self._connection = mysql.connector.connect(**self._connect_config)
+                       ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\nupoo\Downloads\zip_it_up\venv\Lib\site-packages\mysql\connector\pooling.py", line 322, in connect
+    return CMySQLConnection(*args, **kwargs)
+  File "C:\Users\nupoo\Downloads\zip_it_up\venv\Lib\site-packages\mysql\connector\connection_cext.py", line 142, in __init__
+    self.connect(**kwargs)
+    ~~~~~~~~~~~~^^^^^^^^^^
+  File "C:\Users\nupoo\Downloads\zip_it_up\venv\Lib\site-packages\mysql\connector\abstracts.py", line 1604, in connect
+    self._open_connection()
+    ~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\nupoo\Downloads\zip_it_up\venv\Lib\site-packages\mysql\connector\connection_cext.py", line 360, in _open_connection
+    raise get_mysql_exception(
+        err.errno, msg=err.msg, sqlstate=err.sqlstate
+    ) from err
+mysql.connector.errors.ProgrammingError: 1049 (42000): Unknown database 'zipppy'
+[ERROR] 2026-04-18 16:44:21,603 : Settings: host=127.0.0.1, port=3306, user=root, database=zipppy
+[ERROR] 2026-04-18 16:44:21,605 : Fatal error during startup: Exception: SQL Database Connection Failed: 1049 (42000): Unknown database 'zipppy'
+Traceback (most recent call last):
+  File "C:\Users\nupoo\Downloads\zip_it_up\venv\Lib\site-packages\mysql\connector\connection_cext.py", line 354, in _open_connection
+    self._cmysql.connect(**cnx_kwargs)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^
+_mysql_connector.MySQLInterfaceError: Unknown database 'zipppy'
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\nupoo\Downloads\zip_it_up\main.py", line 66, in main
+    sqlServer = SQLUpdateOrderExecutor(
+        host=HOST,
+    ...<3 lines>...
+        database=DB
+    )
+  File "C:\Users\nupoo\Downloads\zip_it_up\utils\sql.py", line 47, in __init__
+    self._connection = mysql.connector.connect(**self._connect_config)
+                       ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\nupoo\Downloads\zip_it_up\venv\Lib\site-packages\mysql\connector\pooling.py", line 322, in connect
+    return CMySQLConnection(*args, **kwargs)
+  File "C:\Users\nupoo\Downloads\zip_it_up\venv\Lib\site-packages\mysql\connector\connection_cext.py", line 142, in __init__
+    self.connect(**kwargs)
+    ~~~~~~~~~~~~^^^^^^^^^^
+  File "C:\Users\nupoo\Downloads\zip_it_up\venv\Lib\site-packages\mysql\connector\abstracts.py", line 1604, in connect
+    self._open_connection()
+    ~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\nupoo\Downloads\zip_it_up\venv\Lib\site-packages\mysql\connector\connection_cext.py", line 360, in _open_connection
+    raise get_mysql_exception(
+        err.errno, msg=err.msg, sqlstate=err.sqlstate
+    ) from err
+mysql.connector.errors.ProgrammingError: 1049 (42000): Unknown database 'zipppy'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\nupoo\Downloads\zip_it_up\main.py", line 127, in <module>
+    asyncio.run(main())
+    ~~~~~~~~~~~^^^^^^^^
+  File "C:\Users\nupoo\AppData\Local\Programs\Python\Python314\Lib\asyncio\runners.py", line 204, in run
+    return runner.run(main)
+           ~~~~~~~~~~^^^^^^
+  File "C:\Users\nupoo\AppData\Local\Programs\Python\Python314\Lib\asyncio\runners.py", line 127, in run
+    return self._loop.run_until_complete(task)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "C:\Users\nupoo\AppData\Local\Programs\Python\Python314\Lib\asyncio\base_events.py", line 719, in run_until_complete
+    return future.result()
+           ~~~~~~~~~~~~~^^
+  File "C:\Users\nupoo\Downloads\zip_it_up\main.py", line 77, in main
+    raise Exception(f"SQL Database Connection Failed: {e}")
+Exception: SQL Database Connection Failed: 1049 (42000): Unknown database 'zipppy'
+[INFO] 2026-04-18 16:44:37,154 : SessionManager initialized (timeout=30min)
+[INFO] 2026-04-18 16:44:37,154 : QueryExecutor initialized
+[INFO] 2026-04-18 16:44:37,154 : LogicalSchemaTransformer initialized
+[INFO] 2026-04-18 16:44:37,154 : Loaded 7 ingest records from cache
+[INFO] 2026-04-18 16:44:37,154 : QueryHistoryStore initialized: logs\query_execution_history.jsonl
+[INFO] 2026-04-18 16:44:37,154 : QueryHistoryStore ingest tracking: 7 records
+[INFO] 2026-04-18 16:44:37,155 : Dashboard managers initialized successfully
+[INFO] 2026-04-18 16:44:37,155 : Connecting to SQL database...
+[ERROR] 2026-04-18 16:44:37,246 : Failed to connect to SQL database: 1049 (42000): Unknown database 'adapter'
+Traceback (most recent call last):
+  File "C:\Users\nupoo\Downloads\zip_it_up\venv\Lib\site-packages\mysql\connector\connection_cext.py", line 354, in _open_connection
+    self._cmysql.connect(**cnx_kwargs)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^
+_mysql_connector.MySQLInterfaceError: Unknown database 'adapter'
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\nupoo\Downloads\zip_it_up\main.py", line 66, in main
+    sqlServer = SQLUpdateOrderExecutor(
+        host=HOST,
+    ...<3 lines>...
+        database=DB
+    )
+  File "C:\Users\nupoo\Downloads\zip_it_up\utils\sql.py", line 47, in __init__
+    self._connection = mysql.connector.connect(**self._connect_config)
+                       ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\nupoo\Downloads\zip_it_up\venv\Lib\site-packages\mysql\connector\pooling.py", line 322, in connect
+    return CMySQLConnection(*args, **kwargs)
+  File "C:\Users\nupoo\Downloads\zip_it_up\venv\Lib\site-packages\mysql\connector\connection_cext.py", line 142, in __init__
+    self.connect(**kwargs)
+    ~~~~~~~~~~~~^^^^^^^^^^
+  File "C:\Users\nupoo\Downloads\zip_it_up\venv\Lib\site-packages\mysql\connector\abstracts.py", line 1604, in connect
+    self._open_connection()
+    ~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\nupoo\Downloads\zip_it_up\venv\Lib\site-packages\mysql\connector\connection_cext.py", line 360, in _open_connection
+    raise get_mysql_exception(
+        err.errno, msg=err.msg, sqlstate=err.sqlstate
+    ) from err
+mysql.connector.errors.ProgrammingError: 1049 (42000): Unknown database 'adapter'
+[ERROR] 2026-04-18 16:44:37,249 : Settings: host=127.0.0.1, port=3306, user=root, database=adapter
+[ERROR] 2026-04-18 16:44:37,249 : Fatal error during startup: Exception: SQL Database Connection Failed: 1049 (42000): Unknown database 'adapter'
+Traceback (most recent call last):
+  File "C:\Users\nupoo\Downloads\zip_it_up\venv\Lib\site-packages\mysql\connector\connection_cext.py", line 354, in _open_connection
+    self._cmysql.connect(**cnx_kwargs)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^
+_mysql_connector.MySQLInterfaceError: Unknown database 'adapter'
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\nupoo\Downloads\zip_it_up\main.py", line 66, in main
+    sqlServer = SQLUpdateOrderExecutor(
+        host=HOST,
+    ...<3 lines>...
+        database=DB
+    )
+  File "C:\Users\nupoo\Downloads\zip_it_up\utils\sql.py", line 47, in __init__
+    self._connection = mysql.connector.connect(**self._connect_config)
+                       ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\nupoo\Downloads\zip_it_up\venv\Lib\site-packages\mysql\connector\pooling.py", line 322, in connect
+    return CMySQLConnection(*args, **kwargs)
+  File "C:\Users\nupoo\Downloads\zip_it_up\venv\Lib\site-packages\mysql\connector\connection_cext.py", line 142, in __init__
+    self.connect(**kwargs)
+    ~~~~~~~~~~~~^^^^^^^^^^
+  File "C:\Users\nupoo\Downloads\zip_it_up\venv\Lib\site-packages\mysql\connector\abstracts.py", line 1604, in connect
+    self._open_connection()
+    ~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\nupoo\Downloads\zip_it_up\venv\Lib\site-packages\mysql\connector\connection_cext.py", line 360, in _open_connection
+    raise get_mysql_exception(
+        err.errno, msg=err.msg, sqlstate=err.sqlstate
+    ) from err
+mysql.connector.errors.ProgrammingError: 1049 (42000): Unknown database 'adapter'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\nupoo\Downloads\zip_it_up\main.py", line 127, in <module>
+    asyncio.run(main())
+    ~~~~~~~~~~~^^^^^^^^
+  File "C:\Users\nupoo\AppData\Local\Programs\Python\Python314\Lib\asyncio\runners.py", line 204, in run
+    return runner.run(main)
+           ~~~~~~~~~~^^^^^^
+  File "C:\Users\nupoo\AppData\Local\Programs\Python\Python314\Lib\asyncio\runners.py", line 127, in run
+    return self._loop.run_until_complete(task)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "C:\Users\nupoo\AppData\Local\Programs\Python\Python314\Lib\asyncio\base_events.py", line 719, in run_until_complete
+    return future.result()
+           ~~~~~~~~~~~~~^^
+  File "C:\Users\nupoo\Downloads\zip_it_up\main.py", line 77, in main
+    raise Exception(f"SQL Database Connection Failed: {e}")
+Exception: SQL Database Connection Failed: 1049 (42000): Unknown database 'adapter'
+[INFO] 2026-04-18 16:49:40,687 : SessionManager initialized (timeout=30min)
+[INFO] 2026-04-18 16:49:40,687 : QueryExecutor initialized
+[INFO] 2026-04-18 16:49:40,687 : LogicalSchemaTransformer initialized
+[INFO] 2026-04-18 16:49:40,687 : Loaded 7 ingest records from cache
+[INFO] 2026-04-18 16:49:40,687 : QueryHistoryStore initialized: logs\query_execution_history.jsonl
+[INFO] 2026-04-18 16:49:40,687 : QueryHistoryStore ingest tracking: 7 records
+[INFO] 2026-04-18 16:49:40,688 : Dashboard managers initialized successfully
+[INFO] 2026-04-18 16:49:40,688 : Connecting to SQL database...
+[INFO] 2026-04-18 16:49:40,841 : SQL database connected successfully
+[INFO] 2026-04-18 16:49:40,841 : Connecting to MongoDB...
+[INFO] 2026-04-18 16:49:40,859 : MongoDB connected successfully
+[INFO] 2026-04-18 17:03:33,327 : Stopping stream...
+[INFO] 2026-04-18 17:03:36,187 : SessionManager initialized (timeout=30min)
+[INFO] 2026-04-18 17:03:36,187 : QueryExecutor initialized
+[INFO] 2026-04-18 17:03:36,187 : LogicalSchemaTransformer initialized
+[INFO] 2026-04-18 17:03:36,228 : Loaded 9 ingest records from cache
+[INFO] 2026-04-18 17:03:36,228 : QueryHistoryStore initialized: logs\query_execution_history.jsonl
+[INFO] 2026-04-18 17:03:36,228 : QueryHistoryStore ingest tracking: 9 records
+[INFO] 2026-04-18 17:03:36,228 : Dashboard managers initialized successfully
+[INFO] 2026-04-18 17:03:36,229 : Connecting to SQL database...
+[INFO] 2026-04-18 17:03:36,332 : SQL database connected successfully
+[INFO] 2026-04-18 17:03:36,332 : Connecting to MongoDB...
+[INFO] 2026-04-18 17:03:36,338 : MongoDB connected successfully
+[INFO] 2026-04-18 17:05:06,877 : Stopping stream...

@@ -1,0 +1,28 @@
+[ERROR] 2026-04-18 15:56:07 [mapregister] : File map_register.pkl does not exist; cannot load MapRegister
+[ERROR] 2026-04-18 16:09:14 [mapregister] : File map_register.pkl does not exist; cannot load MapRegister
+[ERROR] 2026-04-18 16:10:11 [mapregister] : File map_register.pkl does not exist; cannot load MapRegister
+[ERROR] 2026-04-18 16:44:21 [mapregister] : File map_register.pkl does not exist; cannot load MapRegister
+[ERROR] 2026-04-18 16:44:37 [mapregister] : File map_register.pkl does not exist; cannot load MapRegister
+[ERROR] 2026-04-18 16:49:40 [mapregister] : File map_register.pkl does not exist; cannot load MapRegister
+[INFO] 2026-04-18 17:03:33 [mapregister] : MapRegister saved to map_register.pkl
+[INFO] 2026-04-18 17:03:36 [mapregister] : MapRegister loaded from map_register.pkl
+[INFO] 2026-04-18 17:03:36 [mapregister] : Loaded Data: 
++------------------+--------------------------+
+| Key              | Metadata                 |
++==================+==========================+
+| table_autogen_id | Metadata(type=int, AUTO) |
+|                  | Storage:NoSQL            |
++------------------+--------------------------+
+| name             | Metadata(type=str)       |
+|                  | Storage:NoSQL            |
++------------------+--------------------------+
+| age              | Metadata(type=int)       |
+|                  | Storage:NoSQL            |
++------------------+--------------------------+
+| dept             | Metadata(type=str)       |
+|                  | Storage:NoSQL            |
++------------------+--------------------------+
+| active           | Metadata(type=bool)      |
+|                  | Storage:NoSQL            |
++------------------+--------------------------+
+[INFO] 2026-04-18 17:05:06 [mapregister] : MapRegister saved to map_register.pkl

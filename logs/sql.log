@@ -1,0 +1,61 @@
+[INFO] 2026-04-18 15:56:07 [sql] : Initializing SQL executor: adapter@127.0.0.1:3306/adapter
+[INFO] 2026-04-18 16:09:14 [sql] : Initializing SQL executor: root@127.0.0.1:3306/adapter
+[INFO] 2026-04-18 16:10:11 [sql] : Initializing SQL executor: root@127.0.0.1:3306/adapter
+[INFO] 2026-04-18 16:44:21 [sql] : Initializing SQL executor: root@127.0.0.1:3306/zipppy
+[INFO] 2026-04-18 16:44:37 [sql] : Initializing SQL executor: root@127.0.0.1:3306/adapter
+[INFO] 2026-04-18 16:49:40 [sql] : Initializing SQL executor: root@127.0.0.1:3306/adapter
+[INFO] 2026-04-18 16:49:40 [sql] : Connected to MySQL successfully
+[INFO] 2026-04-18 16:49:40 [sql] : Starting SQL update order processing...
+[DEBUG] 2026-04-18 16:49:40 [sql] : Executing SQL CREATE on root (cmd #1)
+[INFO] 2026-04-18 16:49:40 [sql] : Executing CREATE TABLE: CREATE TABLE IF NOT EXISTS `root` (`table_autogen_id` BIGINT PRIMARY KEY)
+[INFO] 2026-04-18 16:49:41 [sql] : SQL update order complete. Executed 1 commands
+[INFO] 2026-04-18 16:55:15 [sql] : Starting SQL update order processing...
+[DEBUG] 2026-04-18 16:55:15 [sql] : Executing SQL INSERT on root (cmd #1)
+[INFO] 2026-04-18 16:55:15 [sql] : Executing INSERT: INSERT INTO `root` (`table_autogen_id`) VALUES (%s) ON DUPLICATE KEY UPDATE table_autogen_id = VALUES(table_autogen_id) with values [1]
+[INFO] 2026-04-18 16:55:15 [sql] : SQL update order complete. Executed 1 commands
+[INFO] 2026-04-18 17:02:42 [sql] : Starting SQL update order processing...
+[DEBUG] 2026-04-18 17:02:42 [sql] : Executing SQL INSERT on root (cmd #1)
+[INFO] 2026-04-18 17:02:42 [sql] : Executing INSERT: INSERT INTO `root` (`table_autogen_id`) VALUES (%s) ON DUPLICATE KEY UPDATE table_autogen_id = VALUES(table_autogen_id) with values [2]
+[INFO] 2026-04-18 17:02:42 [sql] : SQL update order complete. Executed 1 commands
+[INFO] 2026-04-18 17:03:36 [sql] : Initializing SQL executor: root@127.0.0.1:3306/adapter
+[INFO] 2026-04-18 17:03:36 [sql] : Connected to MySQL successfully
+[INFO] 2026-04-18 17:03:36 [sql] : Starting SQL update order processing...
+[DEBUG] 2026-04-18 17:03:36 [sql] : Executing SQL CREATE on root (cmd #1)
+[INFO] 2026-04-18 17:03:36 [sql] : Executing CREATE TABLE: CREATE TABLE IF NOT EXISTS `root` (`table_autogen_id` BIGINT PRIMARY KEY)
+[INFO] 2026-04-18 17:03:36 [sql] : SQL update order complete. Executed 1 commands
+[INFO] 2026-04-18 17:03:56 [sql] : Starting SQL update order processing...
+[DEBUG] 2026-04-18 17:03:56 [sql] : Executing SQL ALTER on root (cmd #1)
+[INFO] 2026-04-18 17:03:56 [sql] : Executing ALTER TABLE: ALTER TABLE `root` ADD COLUMN `name` TEXT
+[INFO] 2026-04-18 17:03:56 [sql] : SQL update order complete. Executed 1 commands
+[INFO] 2026-04-18 17:03:56 [sql] : Starting SQL update order processing...
+[DEBUG] 2026-04-18 17:03:56 [sql] : Executing SQL INSERT on root (cmd #1)
+[INFO] 2026-04-18 17:03:56 [sql] : Migrating 3 historical rows from NoSQL to SQL for root.name
+[INFO] 2026-04-18 17:03:56 [sql] : SQL update order complete. Executed 1 commands
+[INFO] 2026-04-18 17:03:56 [sql] : Starting SQL update order processing...
+[DEBUG] 2026-04-18 17:03:56 [sql] : Executing SQL ALTER on root (cmd #1)
+[INFO] 2026-04-18 17:03:56 [sql] : Executing ALTER TABLE: ALTER TABLE `root` ADD COLUMN `age` BIGINT
+[INFO] 2026-04-18 17:03:56 [sql] : SQL update order complete. Executed 1 commands
+[INFO] 2026-04-18 17:03:56 [sql] : Starting SQL update order processing...
+[DEBUG] 2026-04-18 17:03:56 [sql] : Executing SQL INSERT on root (cmd #1)
+[INFO] 2026-04-18 17:03:56 [sql] : Migrating 3 historical rows from NoSQL to SQL for root.age
+[INFO] 2026-04-18 17:03:56 [sql] : SQL update order complete. Executed 1 commands
+[INFO] 2026-04-18 17:03:56 [sql] : Starting SQL update order processing...
+[DEBUG] 2026-04-18 17:03:56 [sql] : Executing SQL ALTER on root (cmd #1)
+[INFO] 2026-04-18 17:03:56 [sql] : Executing ALTER TABLE: ALTER TABLE `root` ADD COLUMN `dept` TEXT
+[INFO] 2026-04-18 17:03:56 [sql] : SQL update order complete. Executed 1 commands
+[INFO] 2026-04-18 17:03:56 [sql] : Starting SQL update order processing...
+[DEBUG] 2026-04-18 17:03:56 [sql] : Executing SQL INSERT on root (cmd #1)
+[INFO] 2026-04-18 17:03:56 [sql] : Migrating 3 historical rows from NoSQL to SQL for root.dept
+[INFO] 2026-04-18 17:03:56 [sql] : SQL update order complete. Executed 1 commands
+[INFO] 2026-04-18 17:03:56 [sql] : Starting SQL update order processing...
+[DEBUG] 2026-04-18 17:03:56 [sql] : Executing SQL ALTER on root (cmd #1)
+[INFO] 2026-04-18 17:03:56 [sql] : Executing ALTER TABLE: ALTER TABLE `root` ADD COLUMN `active` BOOLEAN
+[INFO] 2026-04-18 17:03:56 [sql] : SQL update order complete. Executed 1 commands
+[INFO] 2026-04-18 17:03:56 [sql] : Starting SQL update order processing...
+[DEBUG] 2026-04-18 17:03:56 [sql] : Executing SQL INSERT on root (cmd #1)
+[INFO] 2026-04-18 17:03:56 [sql] : Migrating 3 historical rows from NoSQL to SQL for root.active
+[INFO] 2026-04-18 17:03:56 [sql] : SQL update order complete. Executed 1 commands
+[INFO] 2026-04-18 17:03:56 [sql] : Starting SQL update order processing...
+[DEBUG] 2026-04-18 17:03:56 [sql] : Executing SQL INSERT on root (cmd #1)
+[INFO] 2026-04-18 17:03:56 [sql] : Executing INSERT: INSERT INTO `root` (`table_autogen_id`, `name`, `age`, `dept`, `active`) VALUES (%s, %s, %s, %s, %s) ON DUPLICATE KEY UPDATE `name` = VALUES(`name`), `age` = VALUES(`age`), `dept` = VALUES(`dept`), `active` = VALUES(`active`) with values [3, 'bench_user_1', 22, 'eng', True]
+[INFO] 2026-04-18 17:03:56 [sql] : SQL update order complete. Executed 1 commands

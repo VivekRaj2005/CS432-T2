@@ -1,0 +1,44 @@
+[INFO] 2026-04-18 16:49:40 [mongodb] : Connecting to MongoDB using connection string
+[INFO] 2026-04-18 16:49:40 [mongodb] : Connected to MongoDB database: adapter
+[INFO] 2026-04-18 16:49:40 [mongodb] : Starting MongoDB update order processing...
+[DEBUG] 2026-04-18 16:49:40 [mongodb] : Executing MongoDB CREATE on root (cmd #1)
+[INFO] 2026-04-18 16:49:41 [mongodb] : Ensured Mongo collection/index for: root
+[INFO] 2026-04-18 16:49:41 [mongodb] : MongoDB update order complete. Executed 1 commands
+[INFO] 2026-04-18 16:55:15 [mongodb] : Starting MongoDB update order processing...
+[DEBUG] 2026-04-18 16:55:15 [mongodb] : Executing MongoDB ALTER on root (cmd #1)
+[INFO] 2026-04-18 16:55:15 [mongodb] : NoSQL ALTER is a no-op in MongoDB: {'type': 'ALTER', 'table_name': 'root', 'column_name': 'name', 'old_type': None, 'new_type': 'str', 'Executer': 'NoSQL', '_perf': {'req_id': '1e89d1ae-3766-4108-9b3e-54632e69eb27'}}
+[INFO] 2026-04-18 16:55:15 [mongodb] : MongoDB update order complete. Executed 1 commands
+[INFO] 2026-04-18 16:55:15 [mongodb] : Starting MongoDB update order processing...
+[DEBUG] 2026-04-18 16:55:15 [mongodb] : Executing MongoDB ALTER on root (cmd #1)
+[INFO] 2026-04-18 16:55:15 [mongodb] : NoSQL ALTER is a no-op in MongoDB: {'type': 'ALTER', 'table_name': 'root', 'column_name': 'age', 'old_type': None, 'new_type': 'int', 'Executer': 'NoSQL', '_perf': {'req_id': '1e89d1ae-3766-4108-9b3e-54632e69eb27'}}
+[INFO] 2026-04-18 16:55:15 [mongodb] : MongoDB update order complete. Executed 1 commands
+[INFO] 2026-04-18 16:55:15 [mongodb] : Starting MongoDB update order processing...
+[DEBUG] 2026-04-18 16:55:15 [mongodb] : Executing MongoDB ALTER on root (cmd #1)
+[INFO] 2026-04-18 16:55:15 [mongodb] : NoSQL ALTER is a no-op in MongoDB: {'type': 'ALTER', 'table_name': 'root', 'column_name': 'dept', 'old_type': None, 'new_type': 'str', 'Executer': 'NoSQL', '_perf': {'req_id': '1e89d1ae-3766-4108-9b3e-54632e69eb27'}}
+[INFO] 2026-04-18 16:55:15 [mongodb] : MongoDB update order complete. Executed 1 commands
+[INFO] 2026-04-18 16:55:15 [mongodb] : Starting MongoDB update order processing...
+[DEBUG] 2026-04-18 16:55:15 [mongodb] : Executing MongoDB ALTER on root (cmd #1)
+[INFO] 2026-04-18 16:55:15 [mongodb] : NoSQL ALTER is a no-op in MongoDB: {'type': 'ALTER', 'table_name': 'root', 'column_name': 'active', 'old_type': None, 'new_type': 'bool', 'Executer': 'NoSQL', '_perf': {'req_id': '1e89d1ae-3766-4108-9b3e-54632e69eb27'}}
+[INFO] 2026-04-18 16:55:15 [mongodb] : MongoDB update order complete. Executed 1 commands
+[INFO] 2026-04-18 16:55:15 [mongodb] : Starting MongoDB update order processing...
+[DEBUG] 2026-04-18 16:55:15 [mongodb] : Executing MongoDB INSERT on root (cmd #1)
+[INFO] 2026-04-18 16:55:15 [mongodb] : Mongo upsert for root id=1
+[INFO] 2026-04-18 16:55:15 [mongodb] : MongoDB update order complete. Executed 1 commands
+[INFO] 2026-04-18 17:02:42 [mongodb] : Starting MongoDB update order processing...
+[DEBUG] 2026-04-18 17:02:42 [mongodb] : Executing MongoDB INSERT on root (cmd #1)
+[INFO] 2026-04-18 17:02:42 [mongodb] : Mongo upsert for root id=2
+[INFO] 2026-04-18 17:02:42 [mongodb] : MongoDB update order complete. Executed 1 commands
+[INFO] 2026-04-18 17:03:36 [mongodb] : Connecting to MongoDB using connection string
+[INFO] 2026-04-18 17:03:36 [mongodb] : Connected to MongoDB database: adapter
+[INFO] 2026-04-18 17:03:36 [mongodb] : Starting MongoDB update order processing...
+[DEBUG] 2026-04-18 17:03:36 [mongodb] : Executing MongoDB CREATE on root (cmd #1)
+[INFO] 2026-04-18 17:03:36 [mongodb] : Ensured Mongo collection/index for: root
+[INFO] 2026-04-18 17:03:36 [mongodb] : MongoDB update order complete. Executed 1 commands
+[INFO] 2026-04-18 17:03:56 [mongodb] : Starting MongoDB update order processing...
+[DEBUG] 2026-04-18 17:03:56 [mongodb] : Executing MongoDB INSERT on root (cmd #1)
+[INFO] 2026-04-18 17:03:56 [mongodb] : Mongo upsert for root id=3
+[INFO] 2026-04-18 17:03:56 [mongodb] : MongoDB update order complete. Executed 1 commands
+[INFO] 2026-04-18 17:03:56 [mongodb] : Removed migrated field 'name' from 3 Mongo documents in root
+[INFO] 2026-04-18 17:03:56 [mongodb] : Removed migrated field 'age' from 3 Mongo documents in root
+[INFO] 2026-04-18 17:03:56 [mongodb] : Removed migrated field 'dept' from 3 Mongo documents in root
+[INFO] 2026-04-18 17:03:56 [mongodb] : Removed migrated field 'active' from 3 Mongo documents in root

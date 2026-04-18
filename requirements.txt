@@ -1,0 +1,11 @@
+faker
+sse_starlette
+fastapi
+uvicorn
+asyncio
+requests
+httpx
+tabulate
+mysql-connector-python
+pymongo
+pytest

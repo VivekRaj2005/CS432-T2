@@ -1,0 +1,88 @@
+[INFO] 2026-04-18 16:49:40 [scheduler] : Starting record processing...
+[INFO] 2026-04-18 16:49:40 [scheduler] : Starting update dispatcher...
+[DEBUG] 2026-04-18 16:49:40 [scheduler] : Dispatched CREATE command to SQL queue (total: 1)
+[DEBUG] 2026-04-18 16:49:40 [scheduler] : Dispatched CREATE command to NoSQL queue (total: 2)
+[INFO] 2026-04-18 16:49:40 [scheduler] : Starting SQL update processor...
+[INFO] 2026-04-18 16:49:40 [scheduler] : Processing SQL CREATE on root (count: 1)
+[INFO] 2026-04-18 16:49:40 [scheduler] : Starting NoSQL update processor...
+[INFO] 2026-04-18 16:49:40 [scheduler] : Processing NoSQL CREATE on root (count: 1)
+[DEBUG] 2026-04-18 16:49:41 [scheduler] : SQL CREATE executed successfully
+[DEBUG] 2026-04-18 16:49:41 [scheduler] : NoSQL CREATE executed successfully
+[DEBUG] 2026-04-18 16:55:15 [scheduler] : Processing record 1 with event 'add' (command_id: 775c52dd-7e5b-4e7a-827c-8d221637441f)
+[INFO] 2026-04-18 16:55:15 [scheduler] : Added record 1 to map_register
+[DEBUG] 2026-04-18 16:55:15 [scheduler] : Dispatched ALTER command to NoSQL queue (total: 3)
+[DEBUG] 2026-04-18 16:55:15 [scheduler] : Dispatched ALTER command to NoSQL queue (total: 4)
+[DEBUG] 2026-04-18 16:55:15 [scheduler] : Dispatched ALTER command to NoSQL queue (total: 5)
+[DEBUG] 2026-04-18 16:55:15 [scheduler] : Dispatched ALTER command to NoSQL queue (total: 6)
+[DEBUG] 2026-04-18 16:55:15 [scheduler] : Dispatched INSERT command to SQL queue (total: 7)
+[DEBUG] 2026-04-18 16:55:15 [scheduler] : Dispatched INSERT command to NoSQL queue (total: 8)
+[INFO] 2026-04-18 16:55:15 [scheduler] : Processing NoSQL ALTER on root (count: 2)
+[INFO] 2026-04-18 16:55:15 [scheduler] : Processing SQL INSERT on root (count: 2)
+[DEBUG] 2026-04-18 16:55:15 [scheduler] : NoSQL ALTER executed successfully
+[INFO] 2026-04-18 16:55:15 [scheduler] : Processing NoSQL ALTER on root (count: 3)
+[DEBUG] 2026-04-18 16:55:15 [scheduler] : NoSQL ALTER executed successfully
+[INFO] 2026-04-18 16:55:15 [scheduler] : Processing NoSQL ALTER on root (count: 4)
+[DEBUG] 2026-04-18 16:55:15 [scheduler] : NoSQL ALTER executed successfully
+[INFO] 2026-04-18 16:55:15 [scheduler] : Processing NoSQL ALTER on root (count: 5)
+[DEBUG] 2026-04-18 16:55:15 [scheduler] : NoSQL ALTER executed successfully
+[INFO] 2026-04-18 16:55:15 [scheduler] : Processing NoSQL INSERT on root (count: 6)
+[DEBUG] 2026-04-18 16:55:15 [scheduler] : SQL INSERT executed successfully
+[DEBUG] 2026-04-18 16:55:15 [scheduler] : NoSQL INSERT executed successfully
+[DEBUG] 2026-04-18 17:02:42 [scheduler] : Processing record 2 with event 'add' (command_id: 25472146-2da0-4e18-b390-aa7e79e24f1e)
+[INFO] 2026-04-18 17:02:42 [scheduler] : Added record 2 to map_register
+[DEBUG] 2026-04-18 17:02:42 [scheduler] : Dispatched INSERT command to SQL queue (total: 9)
+[DEBUG] 2026-04-18 17:02:42 [scheduler] : Dispatched INSERT command to NoSQL queue (total: 10)
+[INFO] 2026-04-18 17:02:42 [scheduler] : Processing SQL INSERT on root (count: 3)
+[INFO] 2026-04-18 17:02:42 [scheduler] : Processing NoSQL INSERT on root (count: 7)
+[DEBUG] 2026-04-18 17:02:42 [scheduler] : NoSQL INSERT executed successfully
+[DEBUG] 2026-04-18 17:02:42 [scheduler] : SQL INSERT executed successfully
+[INFO] 2026-04-18 17:03:33 [scheduler] : Record processing complete. Processed 2 records total
+[INFO] 2026-04-18 17:03:33 [scheduler] : Update dispatcher complete. Dispatched 10 commands total
+[INFO] 2026-04-18 17:03:33 [scheduler] : NoSQL update processor complete. Processed 7 NoSQL commands total
+[INFO] 2026-04-18 17:03:33 [scheduler] : SQL update processor complete. Processed 3 SQL commands total
+[INFO] 2026-04-18 17:03:36 [scheduler] : Starting record processing...
+[INFO] 2026-04-18 17:03:36 [scheduler] : Starting update dispatcher...
+[DEBUG] 2026-04-18 17:03:36 [scheduler] : Dispatched CREATE command to SQL queue (total: 1)
+[DEBUG] 2026-04-18 17:03:36 [scheduler] : Dispatched CREATE command to NoSQL queue (total: 2)
+[INFO] 2026-04-18 17:03:36 [scheduler] : Starting SQL update processor...
+[INFO] 2026-04-18 17:03:36 [scheduler] : Processing SQL CREATE on root (count: 1)
+[INFO] 2026-04-18 17:03:36 [scheduler] : Starting NoSQL update processor...
+[INFO] 2026-04-18 17:03:36 [scheduler] : Processing NoSQL CREATE on root (count: 1)
+[DEBUG] 2026-04-18 17:03:36 [scheduler] : SQL CREATE executed successfully
+[DEBUG] 2026-04-18 17:03:36 [scheduler] : NoSQL CREATE executed successfully
+[DEBUG] 2026-04-18 17:03:56 [scheduler] : Processing record 1 with event 'add' (command_id: 67212949-d2b6-47a0-b63f-7bfc66add9f5)
+[INFO] 2026-04-18 17:03:56 [scheduler] : Added record 1 to map_register
+[DEBUG] 2026-04-18 17:03:56 [scheduler] : Dispatched ALTER command to SQL queue (total: 3)
+[DEBUG] 2026-04-18 17:03:56 [scheduler] : Dispatched INSERT command to SQL queue (total: 4)
+[DEBUG] 2026-04-18 17:03:56 [scheduler] : Dispatched ALTER command to SQL queue (total: 5)
+[DEBUG] 2026-04-18 17:03:56 [scheduler] : Dispatched INSERT command to SQL queue (total: 6)
+[DEBUG] 2026-04-18 17:03:56 [scheduler] : Dispatched ALTER command to SQL queue (total: 7)
+[DEBUG] 2026-04-18 17:03:56 [scheduler] : Dispatched INSERT command to SQL queue (total: 8)
+[DEBUG] 2026-04-18 17:03:56 [scheduler] : Dispatched ALTER command to SQL queue (total: 9)
+[DEBUG] 2026-04-18 17:03:56 [scheduler] : Dispatched INSERT command to SQL queue (total: 10)
+[DEBUG] 2026-04-18 17:03:56 [scheduler] : Dispatched INSERT command to SQL queue (total: 11)
+[DEBUG] 2026-04-18 17:03:56 [scheduler] : Dispatched INSERT command to NoSQL queue (total: 12)
+[INFO] 2026-04-18 17:03:56 [scheduler] : Processing SQL ALTER on root (count: 2)
+[INFO] 2026-04-18 17:03:56 [scheduler] : Processing NoSQL INSERT on root (count: 2)
+[DEBUG] 2026-04-18 17:03:56 [scheduler] : NoSQL INSERT executed successfully
+[DEBUG] 2026-04-18 17:03:56 [scheduler] : SQL ALTER executed successfully
+[INFO] 2026-04-18 17:03:56 [scheduler] : Processing SQL INSERT on root (count: 3)
+[DEBUG] 2026-04-18 17:03:56 [scheduler] : SQL INSERT executed successfully
+[INFO] 2026-04-18 17:03:56 [scheduler] : Processing SQL ALTER on root (count: 4)
+[DEBUG] 2026-04-18 17:03:56 [scheduler] : SQL ALTER executed successfully
+[INFO] 2026-04-18 17:03:56 [scheduler] : Processing SQL INSERT on root (count: 5)
+[DEBUG] 2026-04-18 17:03:56 [scheduler] : SQL INSERT executed successfully
+[INFO] 2026-04-18 17:03:56 [scheduler] : Processing SQL ALTER on root (count: 6)
+[DEBUG] 2026-04-18 17:03:56 [scheduler] : SQL ALTER executed successfully
+[INFO] 2026-04-18 17:03:56 [scheduler] : Processing SQL INSERT on root (count: 7)
+[DEBUG] 2026-04-18 17:03:56 [scheduler] : SQL INSERT executed successfully
+[INFO] 2026-04-18 17:03:56 [scheduler] : Processing SQL ALTER on root (count: 8)
+[DEBUG] 2026-04-18 17:03:56 [scheduler] : SQL ALTER executed successfully
+[INFO] 2026-04-18 17:03:56 [scheduler] : Processing SQL INSERT on root (count: 9)
+[DEBUG] 2026-04-18 17:03:56 [scheduler] : SQL INSERT executed successfully
+[INFO] 2026-04-18 17:03:56 [scheduler] : Processing SQL INSERT on root (count: 10)
+[DEBUG] 2026-04-18 17:03:56 [scheduler] : SQL INSERT executed successfully
+[INFO] 2026-04-18 17:05:06 [scheduler] : NoSQL update processor complete. Processed 2 NoSQL commands total
+[INFO] 2026-04-18 17:05:06 [scheduler] : Record processing complete. Processed 1 records total
+[INFO] 2026-04-18 17:05:06 [scheduler] : Update dispatcher complete. Dispatched 12 commands total
+[INFO] 2026-04-18 17:05:06 [scheduler] : SQL update processor complete. Processed 10 SQL commands total
