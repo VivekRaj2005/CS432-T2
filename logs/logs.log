@@ -437,3 +437,255 @@ Exception: SQL Database Connection Failed: 1049 (42000): Unknown database 'adapt
 [INFO] 2026-04-18 17:03:36,332 : Connecting to MongoDB...
 [INFO] 2026-04-18 17:03:36,338 : MongoDB connected successfully
 [INFO] 2026-04-18 17:05:06,877 : Stopping stream...
+[INFO] 2026-04-19 11:57:08,268 : SessionManager initialized (timeout=30min)
+[INFO] 2026-04-19 11:57:08,269 : QueryExecutor initialized
+[INFO] 2026-04-19 11:57:08,269 : LogicalSchemaTransformer initialized
+[INFO] 2026-04-19 11:57:08,288 : Loaded 10 ingest records from cache
+[INFO] 2026-04-19 11:57:08,289 : QueryHistoryStore initialized: logs\query_execution_history.jsonl
+[INFO] 2026-04-19 11:57:08,289 : QueryHistoryStore ingest tracking: 10 records
+[INFO] 2026-04-19 11:57:08,289 : Dashboard managers initialized successfully
+[INFO] 2026-04-19 11:57:08,290 : Connecting to SQL database...
+[INFO] 2026-04-19 11:57:08,431 : SQL database connected successfully
+[INFO] 2026-04-19 11:57:08,431 : Connecting to MongoDB...
+[INFO] 2026-04-19 11:57:08,585 : MongoDB connected successfully
+[INFO] 2026-04-19 12:11:54,163 : Stopping stream...
+[INFO] 2026-04-19 12:50:34,379 : SessionManager initialized (timeout=30min)
+[INFO] 2026-04-19 12:50:34,380 : QueryExecutor initialized
+[INFO] 2026-04-19 12:50:34,380 : LogicalSchemaTransformer initialized
+[INFO] 2026-04-19 12:50:34,395 : Loaded 11 ingest records from cache
+[INFO] 2026-04-19 12:50:34,395 : QueryHistoryStore initialized: logs\query_execution_history.jsonl
+[INFO] 2026-04-19 12:50:34,395 : QueryHistoryStore ingest tracking: 11 records
+[INFO] 2026-04-19 12:50:34,395 : Dashboard managers initialized successfully
+[INFO] 2026-04-19 12:50:34,397 : Connecting to SQL database...
+[INFO] 2026-04-19 12:50:34,619 : SQL database connected successfully
+[INFO] 2026-04-19 12:50:34,619 : Connecting to MongoDB...
+[INFO] 2026-04-19 12:50:34,778 : MongoDB connected successfully
+[INFO] 2026-04-19 12:58:00,557 : Session created: 2bd0ff2e-13ee-4520-b086-f2bcbade8a7d
+[INFO] 2026-04-19 12:58:00,570 : Session created: d8e87515-9680-4b5e-9d61-ef0510aed419
+[INFO] 2026-04-19 12:58:14,086 : Session created: 83ef34c0-b4fa-4b71-b7c9-195e8e1ff366
+[INFO] 2026-04-19 12:59:46,231 : Stopping stream...
+[INFO] 2026-04-19 13:02:27,342 : SessionManager initialized (timeout=30min)
+[INFO] 2026-04-19 13:02:27,342 : QueryExecutor initialized
+[INFO] 2026-04-19 13:02:27,342 : LogicalSchemaTransformer initialized
+[INFO] 2026-04-19 13:02:27,385 : Loaded 12 ingest records from cache
+[INFO] 2026-04-19 13:02:27,385 : QueryHistoryStore initialized: logs\query_execution_history.jsonl
+[INFO] 2026-04-19 13:02:27,385 : QueryHistoryStore ingest tracking: 12 records
+[INFO] 2026-04-19 13:02:27,385 : Dashboard managers initialized successfully
+[INFO] 2026-04-19 13:02:27,386 : Connecting to SQL database...
+[INFO] 2026-04-19 13:02:27,527 : SQL database connected successfully
+[INFO] 2026-04-19 13:02:27,527 : Connecting to MongoDB...
+[INFO] 2026-04-19 13:02:27,646 : MongoDB connected successfully
+[INFO] 2026-04-19 13:18:13,738 : SessionManager initialized (timeout=30min)
+[INFO] 2026-04-19 13:18:13,738 : QueryExecutor initialized
+[INFO] 2026-04-19 13:18:13,738 : LogicalSchemaTransformer initialized
+[INFO] 2026-04-19 13:18:13,794 : Loaded 1012 ingest records from cache
+[INFO] 2026-04-19 13:18:13,794 : QueryHistoryStore initialized: logs\query_execution_history.jsonl
+[INFO] 2026-04-19 13:18:13,794 : QueryHistoryStore ingest tracking: 1012 records
+[INFO] 2026-04-19 13:18:13,794 : Dashboard managers initialized successfully
+[INFO] 2026-04-19 13:18:13,797 : Connecting to SQL database...
+[INFO] 2026-04-19 13:18:13,987 : SQL database connected successfully
+[INFO] 2026-04-19 13:18:13,987 : Connecting to MongoDB...
+[INFO] 2026-04-19 13:18:14,145 : MongoDB connected successfully
+[INFO] 2026-04-19 13:39:01,864 : SessionManager initialized (timeout=30min)
+[INFO] 2026-04-19 13:39:01,864 : QueryExecutor initialized
+[INFO] 2026-04-19 13:39:01,864 : LogicalSchemaTransformer initialized
+[INFO] 2026-04-19 13:39:01,869 : Loaded 2012 ingest records from cache
+[INFO] 2026-04-19 13:39:01,869 : QueryHistoryStore initialized: logs\query_execution_history.jsonl
+[INFO] 2026-04-19 13:39:01,869 : QueryHistoryStore ingest tracking: 2012 records
+[INFO] 2026-04-19 13:39:01,869 : Dashboard managers initialized successfully
+[INFO] 2026-04-19 13:39:01,870 : Connecting to SQL database...
+[INFO] 2026-04-19 13:39:01,991 : SQL database connected successfully
+[INFO] 2026-04-19 13:39:01,991 : Connecting to MongoDB...
+[INFO] 2026-04-19 13:39:02,101 : MongoDB connected successfully
+[INFO] 2026-04-19 13:43:00,354 : Stopping stream...
+[INFO] 2026-04-19 13:43:22,578 : SessionManager initialized (timeout=30min)
+[INFO] 2026-04-19 13:43:22,578 : QueryExecutor initialized
+[INFO] 2026-04-19 13:43:22,578 : LogicalSchemaTransformer initialized
+[INFO] 2026-04-19 13:43:22,584 : Loaded 2012 ingest records from cache
+[INFO] 2026-04-19 13:43:22,584 : QueryHistoryStore initialized: logs\query_execution_history.jsonl
+[INFO] 2026-04-19 13:43:22,584 : QueryHistoryStore ingest tracking: 2012 records
+[INFO] 2026-04-19 13:43:22,584 : Dashboard managers initialized successfully
+[INFO] 2026-04-19 13:43:22,586 : Connecting to SQL database...
+[INFO] 2026-04-19 13:43:22,835 : SQL database connected successfully
+[INFO] 2026-04-19 13:43:22,835 : Connecting to MongoDB...
+[INFO] 2026-04-19 13:43:22,969 : MongoDB connected successfully
+[INFO] 2026-04-19 13:48:50,150 : Stopping stream...
+[INFO] 2026-04-19 13:49:00,979 : SessionManager initialized (timeout=30min)
+[INFO] 2026-04-19 13:49:00,979 : QueryExecutor initialized
+[INFO] 2026-04-19 13:49:00,979 : LogicalSchemaTransformer initialized
+[INFO] 2026-04-19 13:49:01,036 : Loaded 2212 ingest records from cache
+[INFO] 2026-04-19 13:49:01,036 : QueryHistoryStore initialized: logs\query_execution_history.jsonl
+[INFO] 2026-04-19 13:49:01,036 : QueryHistoryStore ingest tracking: 2212 records
+[INFO] 2026-04-19 13:49:01,036 : Dashboard managers initialized successfully
+[INFO] 2026-04-19 13:49:01,038 : Connecting to SQL database...
+[INFO] 2026-04-19 13:49:01,205 : SQL database connected successfully
+[INFO] 2026-04-19 13:49:01,205 : Connecting to MongoDB...
+[INFO] 2026-04-19 13:49:01,391 : MongoDB connected successfully
+[INFO] 2026-04-19 13:52:01,161 : SessionManager initialized (timeout=30min)
+[INFO] 2026-04-19 13:52:01,161 : QueryExecutor initialized
+[INFO] 2026-04-19 13:52:01,161 : LogicalSchemaTransformer initialized
+[INFO] 2026-04-19 13:52:01,220 : Loaded 2412 ingest records from cache
+[INFO] 2026-04-19 13:52:01,221 : QueryHistoryStore initialized: logs\query_execution_history.jsonl
+[INFO] 2026-04-19 13:52:01,221 : QueryHistoryStore ingest tracking: 2412 records
+[INFO] 2026-04-19 13:52:01,221 : Dashboard managers initialized successfully
+[INFO] 2026-04-19 13:52:01,223 : Connecting to SQL database...
+[INFO] 2026-04-19 13:52:01,417 : SQL database connected successfully
+[INFO] 2026-04-19 13:52:01,417 : Connecting to MongoDB...
+[INFO] 2026-04-19 13:52:01,600 : MongoDB connected successfully
+[INFO] 2026-04-19 13:56:29,302 : Stopping stream...
+[INFO] 2026-04-19 13:56:33,088 : SessionManager initialized (timeout=30min)
+[INFO] 2026-04-19 13:56:33,089 : QueryExecutor initialized
+[INFO] 2026-04-19 13:56:33,089 : LogicalSchemaTransformer initialized
+[INFO] 2026-04-19 13:56:33,100 : Loaded 2412 ingest records from cache
+[INFO] 2026-04-19 13:56:33,100 : QueryHistoryStore initialized: logs\query_execution_history.jsonl
+[INFO] 2026-04-19 13:56:33,100 : QueryHistoryStore ingest tracking: 2412 records
+[INFO] 2026-04-19 13:56:33,100 : Dashboard managers initialized successfully
+[INFO] 2026-04-19 13:56:33,102 : Connecting to SQL database...
+[INFO] 2026-04-19 13:56:33,265 : SQL database connected successfully
+[INFO] 2026-04-19 13:56:33,265 : Connecting to MongoDB...
+[INFO] 2026-04-19 13:56:33,378 : MongoDB connected successfully
+[INFO] 2026-04-19 14:00:35,202 : SessionManager initialized (timeout=30min)
+[INFO] 2026-04-19 14:00:35,203 : QueryExecutor initialized
+[INFO] 2026-04-19 14:00:35,203 : LogicalSchemaTransformer initialized
+[INFO] 2026-04-19 14:00:35,258 : Loaded 2612 ingest records from cache
+[INFO] 2026-04-19 14:00:35,258 : QueryHistoryStore initialized: logs\query_execution_history.jsonl
+[INFO] 2026-04-19 14:00:35,258 : QueryHistoryStore ingest tracking: 2612 records
+[INFO] 2026-04-19 14:00:35,259 : Dashboard managers initialized successfully
+[INFO] 2026-04-19 14:00:35,260 : Connecting to SQL database...
+[INFO] 2026-04-19 14:00:35,435 : SQL database connected successfully
+[INFO] 2026-04-19 14:00:35,435 : Connecting to MongoDB...
+[INFO] 2026-04-19 14:00:35,539 : MongoDB connected successfully
+[INFO] 2026-04-19 14:02:42,645 : SessionManager initialized (timeout=30min)
+[INFO] 2026-04-19 14:02:42,646 : QueryExecutor initialized
+[INFO] 2026-04-19 14:02:42,646 : LogicalSchemaTransformer initialized
+[INFO] 2026-04-19 14:02:42,729 : Loaded 2622 ingest records from cache
+[INFO] 2026-04-19 14:02:42,729 : QueryHistoryStore initialized: logs\query_execution_history.jsonl
+[INFO] 2026-04-19 14:02:42,729 : QueryHistoryStore ingest tracking: 2622 records
+[INFO] 2026-04-19 14:02:42,729 : Dashboard managers initialized successfully
+[INFO] 2026-04-19 14:02:42,733 : Connecting to SQL database...
+[INFO] 2026-04-19 14:02:42,923 : SQL database connected successfully
+[INFO] 2026-04-19 14:02:42,923 : Connecting to MongoDB...
+[INFO] 2026-04-19 14:02:43,030 : MongoDB connected successfully
+[INFO] 2026-04-19 14:07:49,209 : SessionManager initialized (timeout=30min)
+[INFO] 2026-04-19 14:07:49,209 : QueryExecutor initialized
+[INFO] 2026-04-19 14:07:49,209 : LogicalSchemaTransformer initialized
+[INFO] 2026-04-19 14:07:49,268 : Loaded 2632 ingest records from cache
+[INFO] 2026-04-19 14:07:49,268 : QueryHistoryStore initialized: logs\query_execution_history.jsonl
+[INFO] 2026-04-19 14:07:49,268 : QueryHistoryStore ingest tracking: 2632 records
+[INFO] 2026-04-19 14:07:49,268 : Dashboard managers initialized successfully
+[INFO] 2026-04-19 14:07:49,270 : Connecting to SQL database...
+[INFO] 2026-04-19 14:07:49,392 : SQL database connected successfully
+[INFO] 2026-04-19 14:07:49,392 : Connecting to MongoDB...
+[INFO] 2026-04-19 14:07:49,537 : MongoDB connected successfully
+[INFO] 2026-04-19 14:31:17,453 : SessionManager initialized (timeout=30min)
+[INFO] 2026-04-19 14:31:17,454 : QueryExecutor initialized
+[INFO] 2026-04-19 14:31:17,454 : LogicalSchemaTransformer initialized
+[INFO] 2026-04-19 14:31:17,510 : Loaded 2653 ingest records from cache
+[INFO] 2026-04-19 14:31:17,510 : QueryHistoryStore initialized: logs\query_execution_history.jsonl
+[INFO] 2026-04-19 14:31:17,510 : QueryHistoryStore ingest tracking: 2653 records
+[INFO] 2026-04-19 14:31:17,510 : Dashboard managers initialized successfully
+[INFO] 2026-04-19 14:31:17,512 : Connecting to SQL database...
+[INFO] 2026-04-19 14:31:17,666 : SQL database connected successfully
+[INFO] 2026-04-19 14:31:17,666 : Connecting to MongoDB...
+[INFO] 2026-04-19 14:31:17,874 : MongoDB connected successfully
+[INFO] 2026-04-19 14:32:18,247 : SessionManager initialized (timeout=30min)
+[INFO] 2026-04-19 14:32:18,248 : QueryExecutor initialized
+[INFO] 2026-04-19 14:32:18,248 : LogicalSchemaTransformer initialized
+[INFO] 2026-04-19 14:32:18,254 : Loaded 2653 ingest records from cache
+[INFO] 2026-04-19 14:32:18,254 : QueryHistoryStore initialized: logs\query_execution_history.jsonl
+[INFO] 2026-04-19 14:32:18,254 : QueryHistoryStore ingest tracking: 2653 records
+[INFO] 2026-04-19 14:32:18,254 : Dashboard managers initialized successfully
+[INFO] 2026-04-19 14:32:18,255 : Connecting to SQL database...
+[INFO] 2026-04-19 14:32:18,371 : SQL database connected successfully
+[INFO] 2026-04-19 14:32:18,371 : Connecting to MongoDB...
+[INFO] 2026-04-19 14:32:18,478 : MongoDB connected successfully
+[INFO] 2026-04-19 14:32:44,805 : SessionManager initialized (timeout=30min)
+[INFO] 2026-04-19 14:32:44,805 : QueryExecutor initialized
+[INFO] 2026-04-19 14:32:44,805 : LogicalSchemaTransformer initialized
+[INFO] 2026-04-19 14:32:44,823 : Loaded 2653 ingest records from cache
+[INFO] 2026-04-19 14:32:44,823 : QueryHistoryStore initialized: logs\query_execution_history.jsonl
+[INFO] 2026-04-19 14:32:44,823 : QueryHistoryStore ingest tracking: 2653 records
+[INFO] 2026-04-19 14:32:44,823 : Dashboard managers initialized successfully
+[INFO] 2026-04-19 14:32:44,825 : Connecting to SQL database...
+[INFO] 2026-04-19 14:32:44,937 : SQL database connected successfully
+[INFO] 2026-04-19 14:32:44,938 : Connecting to MongoDB...
+[INFO] 2026-04-19 14:32:45,004 : MongoDB connected successfully
+[INFO] 2026-04-19 14:37:39,260 : SessionManager initialized (timeout=30min)
+[INFO] 2026-04-19 14:37:39,260 : QueryExecutor initialized
+[INFO] 2026-04-19 14:37:39,260 : LogicalSchemaTransformer initialized
+[INFO] 2026-04-19 14:37:39,270 : Loaded 2653 ingest records from cache
+[INFO] 2026-04-19 14:37:39,270 : QueryHistoryStore initialized: logs\query_execution_history.jsonl
+[INFO] 2026-04-19 14:37:39,270 : QueryHistoryStore ingest tracking: 2653 records
+[INFO] 2026-04-19 14:37:39,270 : Dashboard managers initialized successfully
+[INFO] 2026-04-19 14:37:39,271 : Connecting to SQL database...
+[INFO] 2026-04-19 14:37:39,426 : SQL database connected successfully
+[INFO] 2026-04-19 14:37:39,426 : Connecting to MongoDB...
+[INFO] 2026-04-19 14:37:39,590 : MongoDB connected successfully
+[INFO] 2026-04-19 14:38:41,937 : SessionManager initialized (timeout=30min)
+[INFO] 2026-04-19 14:38:41,937 : QueryExecutor initialized
+[INFO] 2026-04-19 14:38:41,937 : LogicalSchemaTransformer initialized
+[INFO] 2026-04-19 14:38:41,943 : Loaded 2653 ingest records from cache
+[INFO] 2026-04-19 14:38:41,943 : QueryHistoryStore initialized: logs\query_execution_history.jsonl
+[INFO] 2026-04-19 14:38:41,943 : QueryHistoryStore ingest tracking: 2653 records
+[INFO] 2026-04-19 14:38:41,943 : Dashboard managers initialized successfully
+[INFO] 2026-04-19 14:38:41,944 : Connecting to SQL database...
+[INFO] 2026-04-19 14:38:42,064 : SQL database connected successfully
+[INFO] 2026-04-19 14:38:42,064 : Connecting to MongoDB...
+[INFO] 2026-04-19 14:38:42,217 : MongoDB connected successfully
+[INFO] 2026-04-19 14:42:13,812 : SessionManager initialized (timeout=30min)
+[INFO] 2026-04-19 14:42:13,812 : QueryExecutor initialized
+[INFO] 2026-04-19 14:42:13,813 : LogicalSchemaTransformer initialized
+[INFO] 2026-04-19 14:42:13,820 : Loaded 2653 ingest records from cache
+[INFO] 2026-04-19 14:42:13,820 : QueryHistoryStore initialized: logs\query_execution_history.jsonl
+[INFO] 2026-04-19 14:42:13,820 : QueryHistoryStore ingest tracking: 2653 records
+[INFO] 2026-04-19 14:42:13,820 : Dashboard managers initialized successfully
+[INFO] 2026-04-19 14:42:13,821 : Connecting to SQL database...
+[INFO] 2026-04-19 14:42:13,993 : SQL database connected successfully
+[INFO] 2026-04-19 14:42:13,994 : Connecting to MongoDB...
+[INFO] 2026-04-19 14:42:14,195 : MongoDB connected successfully
+[INFO] 2026-04-19 14:43:46,489 : SessionManager initialized (timeout=30min)
+[INFO] 2026-04-19 14:43:46,489 : QueryExecutor initialized
+[INFO] 2026-04-19 14:43:46,489 : LogicalSchemaTransformer initialized
+[INFO] 2026-04-19 14:43:46,497 : Loaded 2653 ingest records from cache
+[INFO] 2026-04-19 14:43:46,498 : QueryHistoryStore initialized: logs\query_execution_history.jsonl
+[INFO] 2026-04-19 14:43:46,498 : QueryHistoryStore ingest tracking: 2653 records
+[INFO] 2026-04-19 14:43:46,498 : Dashboard managers initialized successfully
+[INFO] 2026-04-19 14:43:46,499 : Connecting to SQL database...
+[INFO] 2026-04-19 14:43:46,613 : SQL database connected successfully
+[INFO] 2026-04-19 14:43:46,613 : Connecting to MongoDB...
+[INFO] 2026-04-19 14:43:46,720 : MongoDB connected successfully
+[INFO] 2026-04-19 14:45:12,857 : SessionManager initialized (timeout=30min)
+[INFO] 2026-04-19 14:45:12,857 : QueryExecutor initialized
+[INFO] 2026-04-19 14:45:12,857 : LogicalSchemaTransformer initialized
+[INFO] 2026-04-19 14:45:12,864 : Loaded 2653 ingest records from cache
+[INFO] 2026-04-19 14:45:12,864 : QueryHistoryStore initialized: logs\query_execution_history.jsonl
+[INFO] 2026-04-19 14:45:12,864 : QueryHistoryStore ingest tracking: 2653 records
+[INFO] 2026-04-19 14:45:12,864 : Dashboard managers initialized successfully
+[INFO] 2026-04-19 14:45:12,865 : Connecting to SQL database...
+[INFO] 2026-04-19 14:45:12,996 : SQL database connected successfully
+[INFO] 2026-04-19 14:45:12,996 : Connecting to MongoDB...
+[INFO] 2026-04-19 14:45:13,179 : MongoDB connected successfully
+[INFO] 2026-04-19 15:00:12,597 : SessionManager initialized (timeout=30min)
+[INFO] 2026-04-19 15:00:12,597 : QueryExecutor initialized
+[INFO] 2026-04-19 15:00:12,597 : LogicalSchemaTransformer initialized
+[INFO] 2026-04-19 15:00:12,603 : Loaded 2653 ingest records from cache
+[INFO] 2026-04-19 15:00:12,603 : QueryHistoryStore initialized: logs\query_execution_history.jsonl
+[INFO] 2026-04-19 15:00:12,603 : QueryHistoryStore ingest tracking: 2653 records
+[INFO] 2026-04-19 15:00:12,603 : Dashboard managers initialized successfully
+[INFO] 2026-04-19 15:00:12,605 : Connecting to SQL database...
+[INFO] 2026-04-19 15:00:12,736 : SQL database connected successfully
+[INFO] 2026-04-19 15:00:12,736 : Connecting to MongoDB...
+[INFO] 2026-04-19 15:00:12,856 : MongoDB connected successfully
+[INFO] 2026-04-19 16:36:27,651 : Stopping stream...
+[INFO] 2026-04-19 17:52:10,820 : SessionManager initialized (timeout=30min)
+[INFO] 2026-04-19 17:52:10,820 : QueryExecutor initialized
+[INFO] 2026-04-19 17:52:10,820 : LogicalSchemaTransformer initialized
+[INFO] 2026-04-19 17:52:10,839 : Loaded 2653 ingest records from cache
+[INFO] 2026-04-19 17:52:10,839 : QueryHistoryStore initialized: logs\query_execution_history.jsonl
+[INFO] 2026-04-19 17:52:10,839 : QueryHistoryStore ingest tracking: 2653 records
+[INFO] 2026-04-19 17:52:10,839 : Dashboard managers initialized successfully
+[INFO] 2026-04-19 17:52:10,840 : Connecting to SQL database...
+[INFO] 2026-04-19 17:52:10,977 : SQL database connected successfully
+[INFO] 2026-04-19 17:52:10,977 : Connecting to MongoDB...
+[INFO] 2026-04-19 17:52:11,102 : MongoDB connected successfully
+[INFO] 2026-04-19 17:58:15,847 : Stopping stream...

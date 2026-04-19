@@ -18,3 +18,37 @@
 [WARNING] 2026-04-18 16:55:15 [resolve] : Type UNK is not recommended for Metadata
 [DEBUG] 2026-04-18 16:55:15 [resolve] : Resolving value for UNK type
 [INFO] 2026-04-18 16:55:15 [resolve] : Resolved UNK type to bool based on provided value
+[WARNING] 2026-04-19 12:02:59 [resolve] : Type UNK is not recommended for Metadata
+[DEBUG] 2026-04-19 12:02:59 [resolve] : Resolving value for UNK type
+[WARNING] 2026-04-19 12:02:59 [resolve] : Unsupported value type <class 'str'> for UNK Metadata; Trying all combinations of basic types
+[DEBUG] 2026-04-19 12:02:59 [resolve] : Failed to resolve UNK type as int
+[DEBUG] 2026-04-19 12:02:59 [resolve] : Failed to resolve UNK type as float
+[DEBUG] 2026-04-19 12:02:59 [resolve] : Failed to resolve UNK type as list/dict
+[INFO] 2026-04-19 12:02:59 [resolve] : Resolved UNK type to str based on provided value
+[WARNING] 2026-04-19 12:02:59 [resolve] : Type UNK is not recommended for Metadata
+[DEBUG] 2026-04-19 12:02:59 [resolve] : Resolving value for UNK type
+[WARNING] 2026-04-19 12:02:59 [resolve] : Unsupported value type <class 'str'> for UNK Metadata; Trying all combinations of basic types
+[INFO] 2026-04-19 12:02:59 [resolve] : Resolved UNK type to int based on provided value
+[WARNING] 2026-04-19 13:04:17 [resolve] : Type UNK is not recommended for Metadata
+[DEBUG] 2026-04-19 13:04:17 [resolve] : Resolving value for UNK type
+[INFO] 2026-04-19 13:04:17 [resolve] : Resolved UNK type to int based on provided value
+[WARNING] 2026-04-19 13:04:17 [resolve] : Type UNK is not recommended for Metadata
+[DEBUG] 2026-04-19 13:04:17 [resolve] : Resolving value for UNK type
+[INFO] 2026-04-19 13:04:17 [resolve] : Resolved UNK type to int based on provided value
+[WARNING] 2026-04-19 13:04:17 [resolve] : Type UNK is not recommended for Metadata
+[DEBUG] 2026-04-19 13:04:17 [resolve] : Resolving value for UNK type
+[INFO] 2026-04-19 13:04:17 [resolve] : Resolved UNK type to dict based on provided value
+[WARNING] 2026-04-19 13:04:17 [resolve] : Type UNK is not recommended for Metadata
+[DEBUG] 2026-04-19 13:04:17 [resolve] : Resolving value for UNK type
+[WARNING] 2026-04-19 13:04:17 [resolve] : Unsupported value type <class 'str'> for UNK Metadata; Trying all combinations of basic types
+[DEBUG] 2026-04-19 13:04:17 [resolve] : Failed to resolve UNK type as int
+[DEBUG] 2026-04-19 13:04:17 [resolve] : Failed to resolve UNK type as float
+[DEBUG] 2026-04-19 13:04:17 [resolve] : Failed to resolve UNK type as list/dict
+[INFO] 2026-04-19 13:04:17 [resolve] : Resolved UNK type to str based on provided value
+[WARNING] 2026-04-19 13:04:17 [resolve] : Type UNK is not recommended for Metadata
+[DEBUG] 2026-04-19 13:04:17 [resolve] : Resolving value for UNK type
+[WARNING] 2026-04-19 13:04:17 [resolve] : Unsupported value type <class 'str'> for UNK Metadata; Trying all combinations of basic types
+[DEBUG] 2026-04-19 13:04:17 [resolve] : Failed to resolve UNK type as int
+[DEBUG] 2026-04-19 13:04:17 [resolve] : Failed to resolve UNK type as float
+[DEBUG] 2026-04-19 13:04:17 [resolve] : Failed to resolve UNK type as list/dict
+[INFO] 2026-04-19 13:04:17 [resolve] : Resolved UNK type to str based on provided value

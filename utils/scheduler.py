@@ -252,6 +252,7 @@ async def process_sql_updates(sql_queue, sql_server, mongo_server, stop_event):
         migration_column = None
 
         try:
+            # Migration path: source NoSQL -> destination SQL
             if command.get("migration") and command.get("type") == "INSERT":
                 values = command.get("values") or []
                 if len(values) > 1 and isinstance(values[1], str):
@@ -260,12 +261,24 @@ async def process_sql_updates(sql_queue, sql_server, mongo_server, stop_event):
                         migration_column = match.group(3)
 
                 if migration_column:
-                    source_rows = await asyncio.to_thread(
-                        mongo_server.fetch_column_snapshot,
-                        command.get("table_name"),
-                        migration_column,
-                    )
-                    migrated_ids = [row.get("table_autogen_id") for row in source_rows if row.get("table_autogen_id") is not None]
+                    if hasattr(mongo_server, "fetch_column_snapshot"):
+                        source_rows = await asyncio.to_thread(
+                            mongo_server.fetch_column_snapshot,
+                            command.get("table_name"),
+                            migration_column,
+                        )
+                    else:
+                        logger.warning(
+                            "Mongo executor missing fetch_column_snapshot; "
+                            "skipping migration transfer_rows enrichment"
+                        )
+                        source_rows = []
+
+                    migrated_ids = [
+                        row.get("table_autogen_id")
+                        for row in source_rows
+                        if row.get("table_autogen_id") is not None
+                    ]
                     command = {
                         **command,
                         "migration_column": migration_column,
@@ -282,21 +295,21 @@ async def process_sql_updates(sql_queue, sql_server, mongo_server, stop_event):
 
             if req_id and t_db_start is not None:
                 perf_metrics.add_stage_ns(req_id, "database_execution", t_db_start, time.perf_counter_ns())
-                # perf_metrics.mark_completed()
 
-            if migration_column and migrated_ids:
+            # Post migration cleanup on source (Mongo)
+            if migration_column and migrated_ids and hasattr(mongo_server, "remove_column_for_ids"):
                 await asyncio.to_thread(
                     mongo_server.remove_column_for_ids,
                     command.get("table_name"),
                     migration_column,
                     migrated_ids,
                 )
+
             logger.debug(f"SQL {cmd_type} executed successfully")
 
         except Exception as e:
             logger.error(f"Error executing SQL command: {e}", exc_info=True)
-            # Do NOT set stop_event or break — keep the worker alive
-    
+
     logger.info(f"SQL update processor complete. Processed {sql_count} SQL commands total")
 
 
@@ -317,6 +330,7 @@ async def process_nosql_updates(nosql_queue, sql_server, mongo_server, stop_even
         migration_column = None
 
         try:
+            # Migration path: source SQL -> destination NoSQL
             if command.get("migration") and command.get("type") == "INSERT":
                 values = command.get("values") or []
                 if len(values) > 1 and isinstance(values[1], str):
@@ -325,16 +339,25 @@ async def process_nosql_updates(nosql_queue, sql_server, mongo_server, stop_even
                         migration_column = match.group(3)
 
                 if migration_column:
-                    source_rows = await asyncio.to_thread(
-                        sql_server.fetch_column_snapshot,
-                        command.get("table_name"),
-                        migration_column,
-                    )
-                    filtered_rows = [
-                        row for row in source_rows
-                        if row.get(migration_column) is not None
+                    if hasattr(sql_server, "fetch_column_snapshot"):
+                        source_rows = await asyncio.to_thread(
+                            sql_server.fetch_column_snapshot,
+                            command.get("table_name"),
+                            migration_column,
+                        )
+                    else:
+                        logger.warning(
+                            "SQL executor missing fetch_column_snapshot; "
+                            "skipping migration transfer_rows enrichment"
+                        )
+                        source_rows = []
+
+                    filtered_rows = [row for row in source_rows if row.get(migration_column) is not None]
+                    migrated_ids = [
+                        row.get("table_autogen_id")
+                        for row in filtered_rows
+                        if row.get("table_autogen_id") is not None
                     ]
-                    migrated_ids = [row.get("table_autogen_id") for row in filtered_rows if row.get("table_autogen_id") is not None]
                     command = {
                         **command,
                         "migration_column": migration_column,
@@ -351,16 +374,13 @@ async def process_nosql_updates(nosql_queue, sql_server, mongo_server, stop_even
 
             if req_id and t_db_start is not None:
                 perf_metrics.add_stage_ns(req_id, "database_execution", t_db_start, time.perf_counter_ns())
-                # perf_metrics.mark_completed()
 
             logger.debug(f"NoSQL {cmd_type} executed successfully")
 
         except Exception as e:
             logger.error(f"Error executing NoSQL command: {e}", exc_info=True)
-            # Do NOT set stop_event or break — keep the worker alive
-    
-    logger.info(f"NoSQL update processor complete. Processed {nosql_count} NoSQL commands total")
 
+    logger.info(f"NoSQL update processor complete. Processed {nosql_count} NoSQL commands total")
 
 def build_update_queues():
     return deque(), deque()
